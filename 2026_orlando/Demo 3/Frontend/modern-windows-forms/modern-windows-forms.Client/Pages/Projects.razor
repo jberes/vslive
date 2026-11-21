@@ -1,0 +1,123 @@
+@page "/projects"
+@using modern_windows_forms.Client.Models.Projects
+@using modern_windows_forms.Client.Pages.ProjectSchedule
+@implements IAsyncDisposable
+
+<PageTitle>Project schedule · BusinessApp</PageTitle>
+
+<div class="sched">
+    @* ---------- Project bar: IgbSelect (project) · status · meta · overall IgbLinearProgress ---------- *@
+    <header class="proj-bar">
+        <IgbSelect class="proj-select" @bind-Value="projectValue" @bind-Value:after="OnProjectChangedAsync"
+                   Outlined="true" aria-label="Project" Disabled="@(projects.Count == 0)">
+            @foreach (var p in projects)
+            {
+                <IgbSelectItem Value="@p.Id.ToString()">@p.Name</IgbSelectItem>
+            }
+        </IgbSelect>
+        @if (gantt is not null)
+        {
+            <StatusChip Text="@ScheduleMath.ProjectStatusLabel(gantt.Project.Status)" Tone="@ScheduleMath.ProjectTone(gantt.Project.Status)" />
+            <span class="proj-meta">@ProjectMeta</span>
+            <div class="proj-overall">
+                <span class="proj-overall__label">Overall</span>
+                <IgbLinearProgress class="proj-overall__bar lp--track" Value="@OverallPercent" Max="100" HideLabel="true"
+                                   aria-label="Project progress" />
+                <span class="proj-overall__pct num">@OverallPercent%</span>
+            </div>
+        }
+        else if (loading)
+        {
+            <span class="skeleton sk-chip"></span>
+            <span class="skeleton sk-meta"></span>
+        }
+    </header>
+
+    @* ---------- Toolbar: replaces the desktop ribbon (insert, indent, move, link, % complete, notes, zoom) ---------- *@
+    <div class="sched-toolbar" role="toolbar" aria-label="Schedule tools">
+        <IgbButton class="tb-primary" Variant="ButtonVariant.Contained" Disabled="@(!CanEdit)" @onclick="InsertTaskAsync">
+            <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />Task
+        </IgbButton>
+        <IgbButton class="tb-btn" Variant="ButtonVariant.Outlined" Disabled="@(!CanEdit)" @onclick="InsertMilestoneAsync">
+            <IgbIcon slot="prefix" IconName="diamond" Collection="@Icons.Collection" />Milestone
+        </IgbButton>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <IgbIconButton class="tb-icon" Variant="IconButtonVariant.Outlined" IconName="outdent" Collection="@Icons.Collection"
+                       Disabled="@(!HasSelection || !CanEdit)" @onclick="OutdentAsync" aria-label="Outdent" title="Outdent" />
+        <IgbIconButton class="tb-icon" Variant="IconButtonVariant.Outlined" IconName="indent" Collection="@Icons.Collection"
+                       Disabled="@(!HasSelection || !CanEdit)" @onclick="IndentAsync" aria-label="Indent" title="Indent" />
+        <IgbIconButton class="tb-icon" Variant="IconButtonVariant.Outlined" IconName="chevron-up" Collection="@Icons.Collection"
+                       Disabled="@(!HasSelection || !CanEdit)" @onclick="MoveUpAsync" aria-label="Move up" title="Move up" />
+        <IgbIconButton class="tb-icon" Variant="IconButtonVariant.Outlined" IconName="chevron-down" Collection="@Icons.Collection"
+                       Disabled="@(!HasSelection || !CanEdit)" @onclick="MoveDownAsync" aria-label="Move down" title="Move down" />
+        <IgbIconButton class="tb-icon" Variant="IconButtonVariant.Outlined" IconName="link" Collection="@Icons.Collection"
+                       Disabled="@(LinkTarget is null || !CanEdit)" @onclick="LinkToNextAsync"
+                       aria-label="Link tasks" title="@LinkTitle" />
+        <span class="tb-sep" aria-hidden="true"></span>
+        <span class="tb-label">Complete</span>
+        <IgbButtonGroup class="pct-group" Selection="ButtonGroupSelection.SingleRequired" Disabled="@(!HasSelection || !CanEdit)"
+                        aria-label="Percent complete for selected task">
+            @foreach (var pct in PercentSteps)
+            {
+                <IgbToggleButton Value="@pct.ToString()" Selected="@(SelectedPercent == pct)" @onclick="@(() => SetProgressAsync(pct))">@(pct)%</IgbToggleButton>
+            }
+        </IgbButtonGroup>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <IgbButton class="tb-btn" Variant="ButtonVariant.Outlined" Disabled="@(!HasSelection)" @onclick="FocusNotes">
+            <IgbIcon slot="prefix" IconName="file-text" Collection="@Icons.Collection" />Notes
+        </IgbButton>
+        <div class="tb-end">
+            <IgbButton class="tb-btn" Variant="ButtonVariant.Outlined" Disabled="@(gantt is null)" @onclick="ScrollToTodayAsync">Today</IgbButton>
+            <IgbButtonGroup class="zoom-group" Selection="ButtonGroupSelection.SingleRequired" aria-label="Zoom">
+                @foreach (var z in ZoomLevels)
+                {
+                    <IgbToggleButton Value="@z.Label" Selected="@(zoom == z)" @onclick="@(() => SetZoomAsync(z))">@z.Label</IgbToggleButton>
+                }
+            </IgbButtonGroup>
+        </div>
+    </div>
+
+    @if (problem is not null)
+    {
+        <div class="sched-alert">
+            <div class="banner banner--error" role="alert">
+                <IgbIcon IconName="@(problem.Status == 0 ? "wifi-off" : "alert-circle")" Collection="@Icons.Collection" />
+                <span class="banner__text"><strong>@problem.Title</strong> @problem.Detail</span>
+                <IgbButton Variant="ButtonVariant.Outlined" @onclick="RetryAsync">Retry</IgbButton>
+            </div>
+        </div>
+    }
+
+    @* ---------- Body: ApexGantt (task list + timeline, dependencies, today line, milestones) + task details ---------- *@
+    <div class="sched-body">
+        <section class="gantt-pane" aria-label="Project schedule">
+            <div @ref="ganttHost" class="gantt-host" data-loading="@loading"></div>
+            @if (loading)
+            {
+                <div class="gantt-skeleton" aria-hidden="true">
+                    <IgbLinearProgress Indeterminate="true" class="sk-progress" />
+                    @for (var i = 0; i < 12; i++)
+                    {
+                        <div class="sk-row">
+                            <span class="skeleton sk-wbs"></span>
+                            <span class="skeleton sk-name"></span>
+                            <span class="skeleton sk-bar sk-bar--@(i % 4)"></span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <TaskDetailPanel @ref="detailPanel"
+                         Current="@SelectedTask"
+                         Gantt="@gantt"
+                         Today="@today"
+                         Loading="@loading"
+                         Busy="@busy"
+                         DatesChanged="OnDatesChangedAsync"
+                         NotesCommitted="OnNotesCommittedAsync" />
+    </div>
+
+    @* ---------- Phone: phase list instead of the Gantt ---------- *@
+    <PhaseList Gantt="@gantt" Today="@today" Loading="@loading" />
+</div>

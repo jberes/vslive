@@ -1,0 +1,170 @@
+@page "/customers"
+@using modern_windows_forms.Client.Models.Customers
+@using modern_windows_forms.Client.Components.Customers
+@using Format = modern_windows_forms.Client.Shared.Format
+
+<PageTitle>Customers · BusinessApp</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div class="page-head__text">
+            <h1 class="page-title">Customers</h1>
+            <p class="page-lede">
+                @if (allCustomers is null)
+                {
+                    <span class="skeleton lede-skeleton"></span>
+                }
+                else
+                {
+                    @($"{Format.Number(allCustomers.Value)} accounts in {countries.Count} countries.")
+                }
+            </p>
+        </div>
+        <div class="page-actions">
+            <IgbButton Variant="ButtonVariant.Outlined" class="btn-ghost" Href="@ExportHref" Download="customers.csv" title="Export this page as CSV">
+                <IgbIcon slot="prefix" IconName="download" Collection="@Icons.Collection" />
+                Export
+            </IgbButton>
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="NewCustomer">
+                <IgbIcon slot="prefix" IconName="user-plus" Collection="@Icons.Collection" />
+                New customer
+            </IgbButton>
+        </div>
+    </div>
+
+    <div class="cust-layout">
+        <section class="panel cust-list" aria-label="Customer list">
+            @* Toolbar: IgbInput search · IgbSelect country · selectable IgbChip *@
+            <div class="list-toolbar">
+                <IgbInput class="list-search" Outlined="true" Placeholder="Search by company, contact or code"
+                          Value="@searchText" InputOcurred="OnSearchInput" aria-label="Search customers">
+                    <IgbIcon slot="prefix" IconName="search" Collection="@Icons.Collection" />
+                </IgbInput>
+                <label class="country-field">
+                    <span>Country</span>
+                    <IgbSelect class="country-select" Outlined="true" @bind-Value="countryValue" @bind-Value:after="OnCountryChanged" aria-label="Country">
+                        <IgbSelectItem Value="@AllCountries">All countries</IgbSelectItem>
+                        @foreach (var c in countries)
+                        {
+                            <IgbSelectItem Value="@c.Country">@c.Country</IgbSelectItem>
+                        }
+                    </IgbSelect>
+                </label>
+                <IgbChip class="@(openOnly ? "pill pill--on toggle-chip" : "pill toggle-chip")" Selectable="true"
+                         @bind-Selected="openOnly" @bind-Selected:after="OnFiltersChanged">
+                    @if (!openOnly)
+                    {
+                        <IgbIcon slot="start" IconName="plus" Collection="@Icons.Collection" />
+                    }
+                    Has open orders
+                </IgbChip>
+            </div>
+
+            @if (HasFilters)
+            {
+                <div class="filter-bar">
+                    <span>Filters:</span>
+                    @if (!string.IsNullOrWhiteSpace(appliedSearch))
+                    {
+                        <IgbChip class="pill pill--on" Removable="true" Remove="ClearSearch">Search: “@appliedSearch”</IgbChip>
+                    }
+                    @if (CountryActive)
+                    {
+                        <IgbChip class="pill pill--on" Removable="true" Remove="ClearCountry">Country: @countryValue</IgbChip>
+                    }
+                    @if (openOnly)
+                    {
+                        <IgbChip class="pill pill--on" Removable="true" Remove="ClearOpen">Has open orders</IgbChip>
+                    }
+                    <IgbButton Variant="ButtonVariant.Flat" class="link-btn" @onclick="ClearAll">Clear all</IgbButton>
+                </div>
+            }
+
+            @if (error is not null)
+            {
+                <div class="list-message">
+                    <div class="banner banner--error" role="alert">
+                        <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" />
+                        <span><strong>@error.Title</strong> @error.Detail</span>
+                        <IgbButton Variant="ButtonVariant.Outlined" class="retry-btn" @onclick="LoadPageAsync">Retry</IgbButton>
+                    </div>
+                </div>
+            }
+
+            @if (IsEmpty)
+            {
+                <div class="empty-state">
+                    <span class="empty-state__icon"><IgbIcon IconName="search" Collection="@Icons.Collection" /></span>
+                    <span class="empty-state__title">No customers match these filters</span>
+                    <span class="muted">Try another name or clear the filters.</span>
+                    <IgbButton Variant="ButtonVariant.Outlined" class="btn-ghost" @onclick="ClearAll">Clear filters</IgbButton>
+                </div>
+            }
+
+            @* Customer grid: full IgbGrid, remote paging + sorting against /api/customers, single row selection *@
+            <div class="@(IsEmpty ? "grid-wrap is-hidden" : "grid-wrap")">
+                <IgbGrid @ref="grid" class="customers-grid" Data="rows" PrimaryKey="Id" AutoGenerate="false"
+                         Width="100%" Height="@GridHeight" RowHeight="56"
+                         PagingMode="GridPagingMode.Remote"
+                         RowSelection="GridSelectionMode.Single" SelectRowOnClick="true" HideRowSelectors="true"
+                         RowSelectionChanging="OnRowSelectionChanging"
+                         SortingExpressions="sortExpressions" SortingDone="OnSortingDone"
+                         IsLoading="@loading">
+                    <IgbColumn Field="CompanyName" Header="Company" DataType="GridColumnDataType.String" Sortable="true" MinWidth="220px">
+                        <BodyTemplate>
+                            @{ var r = RowFor((IgbCellTemplateContext)context); }
+                            @if (r is not null)
+                            {
+                                <span class="cell-company">
+                                    <IgbAvatar class="@Format.AvatarClass(r.CompanyName)" Shape="AvatarShape.Circle"
+                                               Src="@Api.AssetUrl(r.AvatarUrl)" Initials="@Format.Initials(r.CompanyName)" Alt="" />
+                                    <span class="cell-stack">
+                                        <span class="cell-strong">@r.CompanyName</span>
+                                        <span class="cell-code mono">@r.Code</span>
+                                    </span>
+                                </span>
+                            }
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="ContactName" Header="Contact" DataType="GridColumnDataType.String" Sortable="true">
+                        <BodyTemplate>
+                            @{ var r = RowFor((IgbCellTemplateContext)context); }
+                            @if (r is not null)
+                            {
+                                <span class="cell-stack">
+                                    <span class="cell-ellipsis">@r.ContactName</span>
+                                    <span class="cell-sub">@r.ContactTitle</span>
+                                </span>
+                            }
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="City" Header="Location" DataType="GridColumnDataType.String" Sortable="true">
+                        <BodyTemplate>
+                            @{ var r = RowFor((IgbCellTemplateContext)context); }
+                            @if (r is not null)
+                            {
+                                <span class="cell-stack">
+                                    <span class="cell-ellipsis">@r.City</span>
+                                    <span class="cell-sub">@r.Country</span>
+                                </span>
+                            }
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="Phone" Header="Phone" DataType="GridColumnDataType.String" Width="160px" />
+                    <IgbColumn Field="OrderCount" Header="Orders" DataType="GridColumnDataType.Number" Sortable="true" Width="96px" />
+
+                    <IgbPaginator @ref="paginator" PerPage="@perPage" Page="@pageIndex" TotalRecords="@totalRecords"
+                                  SelectOptions="@pageSizeOptions" PageChange="OnPageChange" PerPageChange="OnPerPageChange" />
+                </IgbGrid>
+            </div>
+            @if (!IsEmpty && error is null)
+            {
+                <div class="list-footer">@RangeText</div>
+            }
+        </section>
+
+        <aside class="panel cust-detail" aria-label="Customer details">
+            <CustomerDetail CustomerId="selectedId" />
+        </aside>
+    </div>
+</div>

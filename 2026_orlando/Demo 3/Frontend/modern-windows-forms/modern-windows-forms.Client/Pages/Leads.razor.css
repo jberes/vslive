@@ -1,0 +1,61 @@
+.page--wide { max-width: none; }
+
+.lede-skeleton { display: inline-block; width: 420px; max-width: 100%; height: 14px; vertical-align: middle; }
+
+::deep igc-select.owner-select { width: 200px; }
+::deep igc-chip.pill::part(base) { height: 38px; padding: 0 12px; font-size: 13px; cursor: pointer; }
+
+.banner { align-items: center; }
+.banner ::deep igc-icon { --size: 18px; width: 18px; height: 18px; flex: none; }
+.banner__text { flex: 1; }
+
+/* ---------- Board ---------- */
+.board-scroll { overflow-x: auto; padding-bottom: 8px; }
+.board { display: flex; gap: 14px; min-width: 1120px; align-items: flex-start; }
+
+.col {
+    flex: 1 1 0; min-width: 216px; box-sizing: border-box; min-height: 620px;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 10px; border-radius: var(--radius-lg);
+    background: var(--color-bg-tertiary);
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.col--over { background: var(--color-selected-bg); outline: 1px solid var(--color-info-border); }
+
+.col__head { display: flex; flex-direction: column; gap: 4px; padding: 4px 4px 8px; }
+.col__title { display: flex; align-items: center; gap: 8px; }
+.col__title h2 { font-family: var(--font-sans); font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.dot { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--dot); flex: none; }
+.count {
+    font-size: 12px; font-weight: 600; line-height: 20px; padding: 0 7px; border-radius: var(--radius-full);
+    background: var(--color-bg-primary); border: 1px solid var(--color-border-default); color: var(--color-text-secondary);
+}
+.col__value { font-size: 12px; color: var(--color-text-secondary); }
+
+.drop-hint {
+    height: 96px; border: 2px dashed var(--color-brand-blue); border-radius: var(--radius-lg);
+    background: rgba(0, 143, 251, 0.06); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 500; color: var(--color-brand-blue-700);
+}
+
+.col-empty {
+    padding: 24px 12px; text-align: center; font-size: 13px; color: var(--color-text-tertiary);
+    border: 1px dashed var(--color-border-strong); border-radius: var(--radius-lg);
+}
+
+::deep igc-button.more::part(base) { width: 100%; height: 32px; color: var(--color-text-brand); font-size: 13px; font-weight: 500; }
+
+/* Card skeletons */
+.card-skeleton {
+    display: flex; flex-direction: column; gap: 10px; padding: 12px;
+    background: var(--color-bg-primary); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg);
+}
+.sk-row { display: flex; align-items: center; gap: 10px; }
+.sk-avatar { width: 32px; height: 32px; border-radius: var(--radius-full); flex: none; }
+.sk-line { height: 12px; flex: 1; }
+.sk-chip { height: 18px; width: 60%; border-radius: var(--radius-full); }
+.sk-foot { height: 12px; width: 80%; }
+
+@media (prefers-reduced-motion: reduce) {
+    .col { transition: none; }
+}

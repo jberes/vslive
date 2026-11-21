@@ -1,0 +1,23 @@
+.more { max-width: 640px; }
+
+::deep igc-list.more-list {
+    --ig-list-background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+::deep igc-list-item.more-item {
+    --ig-list-item-background: var(--color-bg-primary);
+    --ig-list-item-background-hover: var(--color-hover-bg);
+    --ig-list-item-text-color: var(--color-text-primary);
+    --ig-list-item-icon-color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+::deep igc-list-item.more-item::part(base) { min-height: 52px; padding: 0 14px; }
+::deep igc-list-item.more-item::part(title) { font-weight: 500; font-size: 14px; }
+::deep igc-list-item.more-item igc-icon { --size: 18px; width: 18px; height: 18px; color: var(--color-text-tertiary); }

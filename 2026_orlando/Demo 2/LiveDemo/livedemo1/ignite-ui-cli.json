@@ -1,0 +1,17 @@
+{
+    "version": "16.0.0",
+    "project": {
+        "defaultPort": 3201,
+        "framework": "react",
+        "projectType": "igr-ts",
+        "projectTemplate": "empty",
+        "theme": "default",
+        "isBundle": false,
+        "components": [],
+        "sourceFiles": [],
+        "isShowcase": false,
+        "version": ""
+    },
+    "build": {},
+    "packagesInstalled": true
+}

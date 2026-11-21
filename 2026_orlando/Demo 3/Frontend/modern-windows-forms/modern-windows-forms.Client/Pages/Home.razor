@@ -1,0 +1,292 @@
+@page "/"
+@using modern_windows_forms.Client.Models.Home
+
+<PageTitle>Home · BusinessApp</PageTitle>
+
+<div class="page home">
+    @* ---------- Greeting + range toggle ---------- *@
+    <div class="page-head">
+        <div class="page-head__text">
+            <div class="eyebrow">@asOf.ToString("dddd, MMMM d, yyyy", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</div>
+            <h1 class="page-title greeting">@Greeting, Laura</h1>
+            <p class="page-lede lede">Sales, projects and marketing at a glance.</p>
+        </div>
+        <div class="page-actions">
+            <IgbButtonGroup class="range-toggle" Selection="ButtonGroupSelection.SingleRequired" Select="SetRange" aria-label="Date range">
+                <IgbToggleButton Value="30" Selected="@(range == "30")">Last 30 days</IgbToggleButton>
+                <IgbToggleButton Value="ytd" Selected="@(range == "ytd")">Year to date</IgbToggleButton>
+            </IgbButtonGroup>
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="GoNewOrder">
+                <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                New order
+            </IgbButton>
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="@(loadError.Status == 0 ? "wifi-off" : "alert-circle")" Collection="@Icons.Collection" />
+            <span class="banner__text"><strong>@loadError.Title</strong> @loadError.Detail</span>
+            <IgbButton Variant="ButtonVariant.Outlined" @onclick="LoadAsync">
+                <IgbIcon slot="prefix" IconName="refresh" Collection="@Icons.Collection" />
+                Retry
+            </IgbButton>
+        </div>
+    }
+
+    @* ---------- KPI cards with ApexChart sparklines ---------- *@
+    <div class="kpi-grid">
+        @if (loading)
+        {
+            @for (var i = 0; i < 4; i++)
+            {
+                <div class="kpi kpi--home">
+                    <span class="skeleton sk-line sk-w40"></span>
+                    <span class="skeleton sk-value"></span>
+                    <span class="skeleton sk-line sk-w60"></span>
+                </div>
+            }
+        }
+        else
+        {
+            @foreach (var k in Kpis)
+            {
+                <a class="kpi kpi--home" href="@k.Href">
+                    <div class="kpi__top">
+                        <span class="kpi__label">@k.Label</span>
+                        <span class="@DeltaClass(k.Tone)">@k.Delta</span>
+                    </div>
+                    <div class="kpi__bottom">
+                        <div class="kpi__nums">
+                            <span class="kpi__value kpi__value--lg">@k.Value</span>
+                            <span class="kpi__sub">@k.Sub</span>
+                        </div>
+                        <div class="spark" role="img" aria-label="@($"{k.Label} trend")">
+                            <ApexChart @key="@($"{range}-{k.Label}")" TItem="SparkPoint" Options="@SparkOptions(k.Color)" Height="40" Width="112">
+                                <ApexPointSeries TItem="SparkPoint" Items="k.Spark" Name="@k.Label" SeriesType="SeriesType.Area"
+                                                 XValue="@(p => p.Index)" YValue="@(p => p.Value)" />
+                            </ApexChart>
+                        </div>
+                    </div>
+                </a>
+            }
+        }
+    </div>
+
+    @* ---------- Monthly revenue + sales by category ---------- *@
+    <div class="row row--2-1">
+        <section class="panel panel--pad chart-panel">
+            <div class="panel-head">
+                <div>
+                    <h2 class="panel__title">Monthly revenue</h2>
+                    <div class="panel__sub">@RevenueRangeLabel · ApexCharts</div>
+                </div>
+                <div class="legend">
+                    <span class="legend__item"><span class="legend__dot"></span>Revenue</span>
+                    <span class="legend__item"><span class="legend__dash"></span>12-mo avg @MoneyK(monthlyAverage)</span>
+                </div>
+            </div>
+            @if (loading)
+            {
+                <span class="skeleton sk-chart"></span>
+            }
+            else if (months.Count > 0)
+            {
+                <ApexChart TItem="MonthPoint" Options="RevenueOptions" Height="260" FormatYAxisLabel="MoneyK">
+                    <ApexPointSeries TItem="MonthPoint" Items="months" Name="Revenue" SeriesType="SeriesType.Area"
+                                     XValue="@(m => m.Short)" YValue="@(m => m.Sales)" />
+                </ApexChart>
+            }
+        </section>
+
+        <section class="panel panel--pad chart-panel">
+            <div class="panel-head">
+                <div>
+                    <h2 class="panel__title">Sales by category</h2>
+                    <div class="panel__sub">@(overview?.Year) year to date · @MoneyK(categoryTotal)</div>
+                </div>
+                <a class="panel-link" href="products">Products</a>
+            </div>
+            @if (loading)
+            {
+                @for (var i = 0; i < 8; i++)
+                {
+                    <span class="skeleton sk-bar"></span>
+                }
+            }
+            else if (categories.Count > 0)
+            {
+                <ApexChart TItem="NameValue" Options="CategoryOptions" Height="300" FormatYAxisLabel="MoneyK">
+                    <ApexPointSeries TItem="NameValue" Items="categories" Name="Sales" SeriesType="SeriesType.Bar"
+                                     XValue="@(c => c.Name)" YValue="@(c => c.Value)" />
+                </ApexChart>
+            }
+        </section>
+    </div>
+
+    @* ---------- Recent orders (IgbGrid) + needs attention (IgbList) ---------- *@
+    <div class="row row--2-1">
+        <section class="panel grid-panel">
+            <div class="panel__head">
+                <h2 class="panel__title">Recent orders</h2>
+                <a class="panel-link" href="orders">View all orders</a>
+            </div>
+            @if (loading)
+            {
+                <div class="sk-rows">
+                    @for (var i = 0; i < 6; i++)
+                    {
+                        <span class="skeleton sk-row"></span>
+                    }
+                </div>
+            }
+            else
+            {
+                <IgbGrid class="recent-grid" TItem="RecentOrderVm" Data="recentOrders" PrimaryKey="Id" AutoGenerate="false"
+                         Height="340px" Width="100%" CellClick="@(_ => OpenOrders())">
+                    <IgbColumn Field="Id" Header="Order" DataType="GridColumnDataType.Number" Width="96px">
+                        <BodyTemplate>
+                            @{ var ctx = (IgbCellTemplateContext)context; }
+                            <span class="order-no">#@ctx.Cell.Value</span>
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="Customer" Header="Customer" DataType="GridColumnDataType.String" MinWidth="220px">
+                        <BodyTemplate>
+                            @{ var row = RowOf((IgbCellTemplateContext)context); }
+                            @if (row is not null)
+                            {
+                                <span class="cust-cell">
+                                    <IgbAvatar class="@row.AvatarClass" Shape="AvatarShape.Circle" Initials="@row.Initials" />
+                                    <span class="cust-name">@row.Customer</span>
+                                </span>
+                            }
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="Date" Header="Date" DataType="GridColumnDataType.String" Width="120px" />
+                    <IgbColumn Field="ShipVia" Header="Ship via" DataType="GridColumnDataType.String" Width="150px" />
+                    <IgbColumn Field="TotalText" Header="Total" DataType="GridColumnDataType.String" Width="120px">
+                        <BodyTemplate>
+                            @{ var ctx = (IgbCellTemplateContext)context; }
+                            <span class="money">@ctx.Cell.Value</span>
+                        </BodyTemplate>
+                    </IgbColumn>
+                    <IgbColumn Field="Status" Header="Status" DataType="GridColumnDataType.String" Width="116px">
+                        <BodyTemplate>
+                            @{ var ctx = (IgbCellTemplateContext)context; }
+                            <StatusChip Text="@(ctx.Cell.Value?.ToString())" />
+                        </BodyTemplate>
+                    </IgbColumn>
+                </IgbGrid>
+            }
+        </section>
+
+        <section class="panel attention">
+            <div class="panel__head">
+                <h2 class="panel__title">Needs attention</h2>
+                @if (!loading)
+                {
+                    <IgbBadge class="count-badge">@attention.Count</IgbBadge>
+                }
+            </div>
+            @if (loading)
+            {
+                <div class="sk-rows sk-rows--pad">
+                    @for (var i = 0; i < 4; i++)
+                    {
+                        <span class="skeleton sk-row sk-row--tall"></span>
+                    }
+                </div>
+            }
+            else if (attention.Count == 0)
+            {
+                <p class="empty-note">Nothing needs your attention right now.</p>
+            }
+            else
+            {
+                <IgbList class="att-list">
+                    @foreach (var n in attention)
+                    {
+                        <IgbListItem class="att-item">
+                            <span slot="start" class="@AttentionIconClass(n.Tone)">
+                                <IgbIcon IconName="@n.Icon" Collection="@Icons.Collection" />
+                            </span>
+                            <a slot="title" class="att-title" href="@n.Href">@n.Title</a>
+                            <span slot="subtitle" class="att-meta">@n.Meta</span>
+                        </IgbListItem>
+                    }
+                </IgbList>
+            }
+        </section>
+    </div>
+
+    @* ---------- Active projects + live campaigns ---------- *@
+    <div class="row row--1-1">
+        <section class="panel list-panel">
+            <div class="panel__head">
+                <h2 class="panel__title">Active projects</h2>
+                <a class="panel-link" href="projects">Open schedule</a>
+            </div>
+            @if (loading)
+            {
+                <div class="sk-rows sk-rows--pad">
+                    @for (var i = 0; i < 3; i++)
+                    {
+                        <span class="skeleton sk-row sk-row--tall"></span>
+                    }
+                </div>
+            }
+            else
+            {
+                @foreach (var p in projects)
+                {
+                    <a class="proj" href="projects">
+                        <div class="proj__top">
+                            <span class="proj__name">@p.Name</span>
+                            <StatusChip Text="@ProjectStatus(p.Status)" Tone="@ProjectTone(p.Status)" />
+                        </div>
+                        <div class="proj__bar">
+                            <IgbLinearProgress class="@ProjectBarClass(p.Status)" Value="@((double)p.PercentComplete)" Max="100" HideLabel="true"
+                                               aria-label="@($"{p.Name} {p.PercentComplete:0}% complete")" />
+                            <span class="proj__pct">@($"{p.PercentComplete:0}%")</span>
+                        </div>
+                        <div class="proj__meta">@ProjectMeta(p)</div>
+                    </a>
+                }
+            }
+        </section>
+
+        <section class="panel list-panel">
+            <div class="panel__head">
+                <h2 class="panel__title">Live campaigns</h2>
+                <a class="panel-link" href="campaigns">All campaigns</a>
+            </div>
+            @if (loading)
+            {
+                <div class="sk-rows sk-rows--pad">
+                    @for (var i = 0; i < 5; i++)
+                    {
+                        <span class="skeleton sk-row"></span>
+                    }
+                </div>
+            }
+            else
+            {
+                @foreach (var c in campaigns)
+                {
+                    <a class="camp" href="campaigns">
+                        <span class="camp__text">
+                            <span class="camp__name">@c.Name</span>
+                            <span class="camp__meta">@CampaignMeta(c)</span>
+                        </span>
+                        <span class="camp__spend">
+                            <span class="camp__nums"><span>@SpendText(c)</span><span>@BudgetText(c)</span></span>
+                            <IgbLinearProgress class="lp--teal camp__bar" Value="@SpendPercent(c)" Max="100" HideLabel="true"
+                                               aria-label="@($"{c.Name} spend {SpendPercent(c):0}% of budget")" />
+                        </span>
+                    </a>
+                }
+            }
+        </section>
+    </div>
+</div>

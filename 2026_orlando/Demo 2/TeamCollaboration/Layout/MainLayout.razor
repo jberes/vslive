@@ -1,0 +1,202 @@
+@inherits LayoutComponentBase
+@inject WorkspaceState Workspace
+@inject NavigationManager Navigation
+
+<div class="app-shell" inert="@(taskDraft is not null)">
+    <header class="app-header">
+        <div class="header-left">
+            <NavLink href="/" class="brand-mark" aria-label="Team Collaboration dashboard">
+                <img src="assets/figma/logo-dashboard.png" alt="" />
+            </NavLink>
+            <div class="home-menu">
+                <button type="button" class="home-button"
+                        aria-expanded="@(menuOpen ? "true" : "false")" aria-controls="home-menu"
+                        @onclick="() => menuOpen = !menuOpen">
+                    Home
+                    <img src="assets/figma/home-arrow.svg" alt="" />
+                </button>
+                @if (menuOpen)
+                {
+                    <nav id="home-menu" class="home-menu-popup" aria-label="Home menu">
+                        <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">Dashboards</NavLink>
+                        <NavLink href="/tasks" @onclick="CloseMenu">My tasks</NavLink>
+                    </nav>
+                }
+            </div>
+        </div>
+        <div class="header-right">
+            <IgbButton class="header-task-button" Variant="@ButtonVariant.Contained"
+                       @onclick="() => OpenTaskEditor()">
+                <img slot="prefix" src="assets/figma/add-black.svg" alt="" />
+                Task
+            </IgbButton>
+            <button type="button" class="header-icon" aria-label="Notifications"
+                    title="Notifications are not available in this demo" disabled>
+                <img src="assets/figma/notifications.svg" alt="" />
+            </button>
+            <button type="button" class="header-icon" aria-label="Chat"
+                    title="Chat is not available in this demo" disabled>
+                <img src="assets/figma/chat.svg" alt="" />
+            </button>
+            <IgbAvatar class="profile-avatar" Shape="@AvatarShape.Circle"
+                       Src="assets/figma/profile-dashboard.png" Alt="Profile avatar" />
+        </div>
+    </header>
+
+    <div class="workspace-shell">
+        <nav class="navigation-rail" aria-label="Main navigation">
+            <NavLink href="/tasks" class="rail-link" ActiveClass="selected" aria-label="My tasks"
+                     title="My tasks">
+                <img class="rail-icon-default" src="assets/figma/nav-tasks.svg" alt="" />
+                <img class="rail-icon-active" src="assets/figma/nav-tasks-active.svg" alt="" />
+            </NavLink>
+            <NavLink href="/" Match="NavLinkMatch.All" class="@DashboardLinkClass"
+                     aria-label="Dashboards" title="Dashboards">
+                <img class="rail-icon-default" src="assets/figma/nav-dashboard.svg" alt="" />
+                <img class="rail-icon-active" src="assets/figma/nav-dashboard-active.svg" alt="" />
+            </NavLink>
+            <button type="button" class="rail-link" aria-label="Organizations"
+                    title="Organizations are not available in this demo" disabled>
+                <img src="assets/figma/nav-business.svg" alt="" />
+            </button>
+            <button type="button" class="rail-link" aria-label="Projects"
+                    title="Projects are not available in this demo" disabled>
+                <img src="assets/figma/nav-directions.svg" alt="" />
+            </button>
+            <button type="button" class="rail-link" aria-label="Files"
+                    title="Files are not available in this demo" disabled>
+                <img src="assets/figma/nav-folder.svg" alt="" />
+            </button>
+        </nav>
+
+        <CascadingValue Value="this" IsFixed="true">
+            @Body
+        </CascadingValue>
+    </div>
+</div>
+
+@if (taskDraft is not null)
+{
+    <div class="dialog-backdrop" @onkeydown="OnDialogKeyDown">
+        <section class="task-dialog" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title">
+            <h2 id="task-dialog-title">@(editingTask is null ? "New task" : "Edit task")</h2>
+            <EditForm Model="taskDraft" OnValidSubmit="SaveTask">
+                <DataAnnotationsValidator />
+                <label for="task-title">Task</label>
+                <InputText id="task-title" @ref="taskTitleInput" @bind-Value="taskDraft.Title" />
+                <ValidationMessage For="() => taskDraft.Title" />
+
+                <label for="task-description">Description</label>
+                <InputText id="task-description" @bind-Value="taskDraft.Description" />
+
+                @if (editingTask is null)
+                {
+                    <label for="task-group">Section</label>
+                    <InputSelect id="task-group" @bind-Value="selectedGroup">
+                        @foreach (var group in Workspace.TaskGroups)
+                        {
+                            <option value="@group.Name">@group.Name</option>
+                        }
+                    </InputSelect>
+                }
+
+                <div class="dialog-actions">
+                    <button type="button" class="dialog-cancel" @onclick="CloseTaskEditor">Cancel</button>
+                    <button type="submit" class="dialog-save">Save task</button>
+                </div>
+            </EditForm>
+        </section>
+    </div>
+}
+
+@code {
+    private bool menuOpen;
+    private TaskDraft? taskDraft;
+    private CollaborationTask? editingTask;
+    private InputText? taskTitleInput;
+    private bool focusTaskTitle;
+    private string selectedGroup = "";
+
+    private string DashboardLinkClass =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].TrimEnd('/') == "dashboard"
+            ? "rail-link selected"
+            : "rail-link";
+
+    private void CloseMenu() => menuOpen = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusTaskTitle && taskTitleInput?.Element is { } input)
+        {
+            focusTaskTitle = false;
+            await input.FocusAsync(preventScroll: true);
+        }
+    }
+
+    public void OpenTaskEditor(TaskGroup? group = null, CollaborationTask? task = null)
+    {
+        editingTask = task;
+        selectedGroup = (group
+            ?? Workspace.TaskGroups.FirstOrDefault(item => item.ListName == Workspace.SelectedTaskList)
+            ?? Workspace.TaskGroups[0]).Name;
+        taskDraft = new TaskDraft
+        {
+            Title = task?.Title ?? "",
+            Description = task?.Description ?? ""
+        };
+        menuOpen = false;
+        focusTaskTitle = true;
+        StateHasChanged();
+    }
+
+    private void SaveTask()
+    {
+        if (taskDraft is null)
+        {
+            return;
+        }
+
+        var title = taskDraft.Title.Trim();
+        var group = Workspace.TaskGroups.Single(item => item.Name == selectedGroup);
+        if (editingTask is null)
+        {
+            group.Tasks.Add(new CollaborationTask(title, taskDraft.Description.Trim(), "assets/figma/profile-dashboard.png"));
+            if (Workspace.SelectedTaskList is not null && Workspace.SelectedTaskList != group.ListName)
+            {
+                Workspace.SelectedTaskList = null;
+            }
+        }
+        else
+        {
+            editingTask.Title = title;
+            editingTask.Description = taskDraft.Description.Trim();
+        }
+
+        Workspace.NotifyChanged();
+        CloseTaskEditor();
+        Navigation.NavigateTo("/tasks");
+    }
+
+    private void CloseTaskEditor()
+    {
+        taskDraft = null;
+        editingTask = null;
+        focusTaskTitle = false;
+    }
+
+    private void OnDialogKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            CloseTaskEditor();
+        }
+    }
+
+    private sealed class TaskDraft
+    {
+        [Required(ErrorMessage = "Enter a task name.")]
+        public string Title { get; set; } = "";
+
+        public string Description { get; set; } = "";
+    }
+}

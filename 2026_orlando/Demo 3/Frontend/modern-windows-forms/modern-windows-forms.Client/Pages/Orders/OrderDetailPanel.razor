@@ -1,0 +1,95 @@
+@using modern_windows_forms.Client.Models.Orders
+@namespace modern_windows_forms.Client.Pages.OrderParts
+@inject ApiClient Api
+
+@* Master-detail body for an order row: order lines (GET /api/orders/{id}/details) + ship-to summary. *@
+<div class="detail">
+    <div class="lines">
+        <div class="lines__head">
+            <span>Product</span><span class="r">Unit price</span><span class="r">Qty</span><span class="r">Discount</span><span class="r">Line total</span>
+        </div>
+        @if (ErrorText is not null)
+        {
+            <div class="lines__msg lines__msg--error">Couldn't load the order lines: @ErrorText</div>
+        }
+        else if (CurrentLines is null)
+        {
+            @for (var i = 0; i < Math.Clamp(Order.ItemCount, 1, 4); i++)
+            {
+                <div class="lines__row"><span class="skeleton sk"></span><span></span><span></span><span></span><span class="skeleton sk-sm"></span></div>
+            }
+        }
+        else
+        {
+            @foreach (var line in CurrentLines)
+            {
+                <div class="lines__row">
+                    <span class="ellipsis" title="@line.QuantityPerUnit">@line.ProductName</span>
+                    <span class="r">@Format.Money(line.UnitPrice)</span>
+                    <span class="r">@line.Quantity</span>
+                    <span class="r muted">@(line.Discount > 0 ? $"{Math.Round(line.Discount * 100)}%" : "—")</span>
+                    <span class="r strong">@Format.Money(line.LineTotal)</span>
+                </div>
+            }
+        }
+        <div class="lines__foot">
+            <span>Freight @Format.Money(Order.Freight)</span>
+            <span class="strong">Order total @Format.Money(Order.Total)</span>
+        </div>
+    </div>
+    <div class="ship-info">
+        <div>
+            <div class="label">Ship to</div>
+            <div class="strong">@(Order.ShipName ?? Order.CustomerName)</div>
+            <div class="muted">@Order.ShipAddress</div>
+            <div class="muted">@Order.ShipCity@(string.IsNullOrEmpty(Order.ShipPostalCode) ? "" : " " + Order.ShipPostalCode), @Order.ShipCountry</div>
+        </div>
+        <div>
+            <div class="label">Shipping</div>
+            <div class="muted">@ShippingText</div>
+        </div>
+        <div>
+            <div class="label">Sales employee</div>
+            <div class="muted">@Order.EmployeeFullName</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OrderRow Order { get; set; } = default!;
+    [Parameter] public IReadOnlyList<OrderLine>? Lines { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    /// <summary>Called with the lines once this panel has loaded them, so the page can cache them.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<OrderLine>> LinesLoaded { get; set; }
+
+    // IgbGrid renders DetailTemplate content once per expansion and does not re-render it when the page's
+    // state changes, so the panel loads its own lines and re-renders itself.
+    private IReadOnlyList<OrderLine>? loadedLines;
+    private string? loadError;
+    private int? loadedFor;
+
+    private IReadOnlyList<OrderLine>? CurrentLines => Lines ?? loadedLines;
+    private string? ErrorText => Error ?? loadError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Lines is not null || loadedFor == Order.Id) return;
+        loadedFor = Order.Id;
+        loadedLines = null;
+        loadError = null;
+        try
+        {
+            loadedLines = await Api.GetAsync<List<OrderLine>>($"api/orders/{Order.Id}/details");
+            await LinesLoaded.InvokeAsync(loadedLines);
+        }
+        catch (ApiException ex)
+        {
+            loadError = ex.Problem.Title ?? "Request failed";
+        }
+    }
+
+    private string ShippingText => Order.ShippedDate is { } shipped
+        ? $"Shipped {Format.Date(shipped)} via {Order.ShipViaName}"
+        : $"Not shipped · {Order.ShipViaName} · freight {Format.Money(Order.Freight)}";
+}

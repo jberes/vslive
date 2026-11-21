@@ -1,0 +1,89 @@
+@using modern_windows_forms.Client.Models.Projects
+
+@* Task details drawer: status IgbChip, behind-schedule notice, IgbLinearProgress, IgbDatePicker ×2,
+   assigned resources (IgbAvatar), dependencies and notes (IgbTextarea). *@
+<aside class="detail" aria-label="Task details">
+    @if (Loading && Current is null)
+    {
+        <div class="detail-skeleton" aria-hidden="true">
+            <span class="skeleton sk-line sk-line--sm"></span>
+            <span class="skeleton sk-line sk-line--lg"></span>
+            <span class="skeleton sk-line"></span>
+            <span class="skeleton sk-block"></span>
+            <span class="skeleton sk-line"></span>
+        </div>
+    }
+    else if (Current is null)
+    {
+        <div class="detail-empty">
+            <IgbIcon IconName="gantt" Collection="@Icons.Collection" />
+            <p>Select a task in the schedule to see its details.</p>
+        </div>
+    }
+    else
+    {
+        <div class="detail-head">
+            <div class="detail-head__text">
+                <div class="detail-wbs mono">WBS @Current.Wbs</div>
+                <h2 class="detail-title">@Current.Name</h2>
+            </div>
+            <StatusChip Text="@ScheduleMath.Label(Status)" Tone="@ScheduleMath.Tone(Status)" />
+        </div>
+
+        @if (Status == ScheduleStatus.Behind && BehindText is { } behind)
+        {
+            <div class="banner banner--warning detail-behind" role="status">
+                <IgbIcon IconName="alert-triangle" Collection="@Icons.Collection" />
+                <span>@behind</span>
+            </div>
+        }
+
+        <div class="detail-progress">
+            <div class="detail-row"><span class="muted">Progress</span><strong class="num">@Current.PercentComplete%</strong></div>
+            <IgbLinearProgress class="@ProgressClass" Value="@Current.PercentComplete" Max="100" HideLabel="true" aria-label="Task progress" />
+        </div>
+
+        <div class="detail-dates">
+            <IgbDatePicker Label="Start" Value="@Current.Start" ValueChanged="OnStartChanged" Outlined="true"
+                           ReadOnly="@DatesReadOnly" DisplayFormat="MMM d, yyyy" />
+            <IgbDatePicker Label="Finish" Value="@Current.Finish" ValueChanged="OnFinishChanged" Outlined="true"
+                           ReadOnly="@(DatesReadOnly || Current.IsMilestone)" DisplayFormat="MMM d, yyyy" Min="@Current.Start" />
+        </div>
+        @if (Current.IsSummary)
+        {
+            <p class="subtle">Summary dates and progress roll up from the tasks below it.</p>
+        }
+
+        <div class="detail-section">
+            <div class="detail-label">Assigned</div>
+            @foreach (var person in People)
+            {
+                <div class="person">
+                    <IgbAvatar class="@Format.AvatarClass(person.Name)" Shape="AvatarShape.Circle" Initials="@Format.Initials(person.Name)" />
+                    <span class="person__text">
+                        <span class="person__name">@person.Name</span>
+                        <span class="person__role">@person.Role</span>
+                    </span>
+                </div>
+            }
+            @if (People.Count == 0)
+            {
+                <span class="muted">Nobody assigned</span>
+            }
+        </div>
+
+        <div class="detail-section detail-deps">
+            <div class="detail-label">Depends on</div>
+            <div>@DependsOn</div>
+            <div class="detail-label detail-label--gap">Blocks</div>
+            <div>@Blocks</div>
+        </div>
+
+        <div class="detail-section">
+            <IgbTextarea @ref="notesArea" Label="Notes" Rows="3" Outlined="true" Resize="TextareaResize.Vertical"
+                         Value="@notesDraft" ValueChanged="OnNotesTyped" Change="OnNotesChange" Disabled="@Busy" />
+        </div>
+
+        <div class="detail-api mono">PATCH /api/tasks/@Current.Id/progress</div>
+    }
+</aside>

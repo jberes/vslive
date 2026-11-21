@@ -1,0 +1,152 @@
+/* Home dashboard — layout per design board "1 · Home dashboard" */
+.home { gap: var(--space-6); padding-top: 28px; padding-bottom: var(--space-12); }
+
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-brand); }
+.greeting { margin-top: 4px; }
+.lede { margin-top: 4px; font-size: 15px; }
+.page-head { gap: var(--space-4); }
+
+/* Segmented range toggle (IgbButtonGroup) — pill track per design */
+::deep igc-button-group.range-toggle {
+    --ig-button-group-item-background: transparent;
+    --ig-button-group-item-text-color: var(--color-text-secondary);
+    --ig-button-group-item-hover-background: var(--color-bg-primary);
+    --ig-button-group-item-selected-background: var(--color-bg-primary);
+    --ig-button-group-item-selected-text-color: var(--color-text-primary);
+    --ig-button-group-item-selected-hover-background: var(--color-bg-primary);
+    --ig-button-group-item-border-color: transparent;
+    --ig-button-group-item-selected-border-color: transparent;
+}
+::deep igc-button-group.range-toggle::part(group) {
+    padding: 3px; gap: 2px; background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-default); border-radius: var(--radius-md);
+}
+::deep igc-button-group.range-toggle igc-toggle-button::part(toggle) {
+    height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500;
+}
+::deep igc-button-group.range-toggle igc-toggle-button[selected]::part(toggle) {
+    font-weight: 600; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Banner ---------- */
+.banner { align-items: center; }
+.banner__text { flex: 1; }
+
+/* ---------- KPI cards ---------- */
+.kpi--home {
+    gap: 10px; padding: 18px 20px; text-decoration: none; color: var(--color-text-primary);
+    transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+a.kpi--home:hover { box-shadow: var(--shadow-floating); color: var(--color-text-primary); }
+.kpi__top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.kpi__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.kpi__nums { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi__value--lg { font-size: 28px; line-height: 34px; }
+.spark { flex: none; width: 112px; height: 40px; }
+
+.delta {
+    font-size: 12px; font-weight: 600; padding: 0 8px; line-height: 20px; border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary); white-space: nowrap;
+}
+.delta--up { background: var(--color-success-bg); color: var(--color-success-text); }
+.delta--down { background: var(--color-error-bg); color: var(--color-error-text); }
+
+/* ---------- Rows ---------- */
+.row { display: grid; gap: var(--space-4); }
+.row--2-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.row--1-1 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.chart-panel { display: flex; flex-direction: column; gap: 12px; }
+.panel-link { font-size: 13px; font-weight: 500; }
+
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-secondary); }
+.legend__item { display: flex; align-items: center; gap: 6px; }
+.legend__dot { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--chart-1); }
+.legend__dash { width: 10px; height: 0; border-top: 2px dashed var(--color-text-tertiary); }
+
+/* ---------- Recent orders grid ---------- */
+.grid-panel { display: flex; flex-direction: column; overflow: hidden; }
+.grid-panel .panel__head { padding: 16px 20px; }
+::deep igc-grid.recent-grid { --ig-size: var(--ig-size-medium); border: 0; }
+::deep igc-grid.recent-grid igc-avatar { --ig-avatar-size: 28px; width: 28px; height: 28px; flex: none; font-size: 11px; }
+.order-no { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-brand); }
+.cust-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cust-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.money { display: block; width: 100%; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* ---------- Needs attention (IgbList) ---------- */
+.attention { display: flex; flex-direction: column; padding: 0 0 8px; }
+.attention .panel__head { padding: 16px 20px 8px; }
+::deep igc-badge.count-badge::part(base) {
+    background: var(--color-error-bg); color: var(--color-error-text);
+    font-size: 12px; font-weight: 600; padding: 0 8px; line-height: 20px; border-radius: var(--radius-full); min-width: 0;
+}
+::deep igc-list.att-list { --ig-list-background: transparent; padding: 0 12px; }
+::deep igc-list-item.att-item {
+    --ig-list-item-background: transparent;
+    --ig-list-item-background-hover: var(--color-hover-bg);
+    border-top: 1px solid var(--color-border-light);
+}
+::deep igc-list-item.att-item::part(content) { align-items: flex-start; padding: 12px 8px; border-radius: var(--radius-md); gap: 12px; }
+.att-icon {
+    flex: none; width: 32px; height: 32px; border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+}
+::deep .att-icon igc-icon { --size: 16px; width: 16px; height: 16px; }
+.att-icon--error { background: var(--color-error-bg); color: var(--color-error-text); }
+.att-icon--warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.att-icon--info { background: var(--color-info-bg); color: var(--color-info-text); }
+.att-title { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+.att-title:hover { color: var(--color-text-brand); }
+.att-meta { font-size: 12px; line-height: 17px; color: var(--color-text-secondary); }
+.empty-note { margin: 0; padding: 12px 20px; color: var(--color-text-secondary); }
+
+/* ---------- Projects & campaigns ---------- */
+.list-panel { display: flex; flex-direction: column; gap: 4px; padding: 0 20px 12px; }
+.list-panel .panel__head { padding: 16px 0 8px; }
+
+.proj, .camp {
+    display: flex; flex-direction: column; gap: 8px; padding: 12px 8px; margin: 0 -8px;
+    border-radius: var(--radius-md); border-top: 1px solid var(--color-border-light);
+    text-decoration: none; color: var(--color-text-primary);
+}
+.proj:hover, .camp:hover { background: var(--color-hover-bg); color: var(--color-text-primary); }
+.proj__top { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.proj__name { font-weight: 600; }
+.proj__bar { display: flex; align-items: center; gap: 12px; }
+::deep igc-linear-progress.proj-bar { flex: 1; --ig-linear-progress-track-color: var(--gantt-track-blue); }
+::deep igc-linear-progress.proj-bar::part(track) { height: 6px; }
+.proj__pct { font-size: 13px; font-weight: 600; width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+.proj__meta { font-size: 12px; color: var(--color-text-secondary); }
+
+.camp { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 16px; align-items: center; padding: 10px 8px; }
+.camp__text { display: flex; flex-direction: column; min-width: 0; }
+.camp__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.camp__meta { font-size: 12px; color: var(--color-text-secondary); }
+.camp__spend { display: flex; flex-direction: column; gap: 4px; }
+.camp__nums { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-secondary); }
+::deep igc-linear-progress.camp__bar::part(track) { height: 6px; }
+
+/* ---------- Skeletons ---------- */
+.sk-line { height: 12px; }
+.sk-w40 { width: 40%; }
+.sk-w60 { width: 60%; }
+.sk-value { height: 30px; width: 55%; }
+.sk-chart { height: 260px; width: 100%; }
+.sk-bar { height: 22px; width: 100%; margin-bottom: 10px; }
+.sk-rows { display: flex; flex-direction: column; gap: 10px; padding: 0 20px 16px; }
+.sk-rows--pad { padding: 8px 0 12px; }
+.attention .sk-rows--pad { padding: 8px 20px 12px; }
+.sk-row { height: 36px; }
+.sk-row--tall { height: 56px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+    .row--2-1, .row--1-1 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+    .camp { grid-template-columns: minmax(0, 1fr); }
+    .page-actions { width: 100%; }
+}

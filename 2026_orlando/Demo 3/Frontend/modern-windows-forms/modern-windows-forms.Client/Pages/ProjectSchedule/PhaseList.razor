@@ -1,0 +1,134 @@
+@using System.Globalization
+@using modern_windows_forms.Client.Models.Projects
+
+@* Phone (<= 720px): phase list (IgbAccordion + IgbExpansionPanel, IgbLinearProgress, IgbList) replaces the Gantt. *@
+<section class="phases" aria-label="Project phases">
+    @if (Gantt is null)
+    {
+        @if (Loading)
+        {
+            <div class="ph-card" aria-hidden="true">
+                <span class="skeleton sk-line sk-line--lg"></span>
+                <span class="skeleton sk-line"></span>
+                <span class="skeleton sk-line sk-line--sm"></span>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="ph-card">
+            <div class="ph-card__title">@Gantt.Project.Name</div>
+            <div class="ph-card__meta">@Summary</div>
+            <IgbLinearProgress class="ph-bar lp--track" Value="@((double)Gantt.Project.PercentComplete)" Max="100" HideLabel="true" aria-label="Project progress" />
+        </div>
+
+        <div class="ph-heading">Phases</div>
+        <IgbAccordion class="ph-accordion" SingleExpand="true">
+            @foreach (var phase in Phases)
+            {
+                <IgbExpansionPanel class="ph-panel" Open="@(phase.Task.Id == openId)">
+                    <div slot="title" class="ph-head">
+                        <span class="ph-head__name">@phase.Task.Wbs · @phase.Task.Name</span>
+                        <StatusChip Text="@ScheduleMath.Label(phase.Status)" Tone="@ScheduleMath.Tone(phase.Status)" />
+                    </div>
+                    <div slot="subtitle" class="ph-sub">
+                        <span>@Dates(phase.Task) · @phase.Leaves.Count tasks</span>
+                        <span class="ph-sub__progress">
+                            <IgbLinearProgress class="ph-bar lp--track" Value="@phase.Task.PercentComplete" Max="100" HideLabel="true" aria-label="Phase progress" />
+                            <span class="ph-sub__pct num">@phase.Task.PercentComplete%</span>
+                        </span>
+                    </div>
+                    <IgbList class="ph-tasks">
+                        @foreach (var t in phase.Leaves)
+                        {
+                            <IgbListItem>
+                                <span slot="start" class="@DotClass(t)" aria-hidden="true"></span>
+                                <span slot="title" class="ph-task__name">@t.Name</span>
+                                <span slot="end" class="ph-task__when">@When(t)</span>
+                            </IgbListItem>
+                        }
+                    </IgbList>
+                </IgbExpansionPanel>
+            }
+        </IgbAccordion>
+    }
+</section>
+
+@code {
+    private sealed record Phase(GanttTask Task, List<GanttTask> Leaves, ScheduleStatus Status);
+    private static readonly CultureInfo Us = CultureInfo.GetCultureInfo("en-US");
+
+    [Parameter] public GanttPayload? Gantt { get; set; }
+    [Parameter] public DateTime Today { get; set; } = DateTime.Today;
+    [Parameter] public bool Loading { get; set; }
+
+    private List<Phase> Phases = [];
+    private int? openId;
+    private GanttPayload? builtFrom;
+
+    protected override void OnParametersSet()
+    {
+        if (Gantt is null || ReferenceEquals(Gantt, builtFrom)) return;
+        var openBefore = openId;
+        builtFrom = Gantt;
+        var children = Gantt.Tasks.ToLookup(t => t.ParentId);
+        Phases = Gantt.Tasks.Where(t => t.ParentId is null && t.IsSummary).OrderBy(t => t.RowNumber)
+            .Select(p =>
+            {
+                var leaves = LeavesOf(p.Id, children).OrderBy(t => t.RowNumber).ToList();
+                return new Phase(p, leaves, ScheduleMath.PhaseStatus(p, leaves, Today));
+            })
+            .ToList();
+        // Open the phase that needs attention (first behind, else first in progress) unless the user kept one open.
+        openId = Phases.Any(p => p.Task.Id == openBefore) ? openBefore
+            : (Phases.FirstOrDefault(p => p.Status == ScheduleStatus.Behind)
+               ?? Phases.FirstOrDefault(p => p.Status == ScheduleStatus.InProgress))?.Task.Id;
+    }
+
+    private static IEnumerable<GanttTask> LeavesOf(int id, ILookup<int?, GanttTask> children)
+    {
+        foreach (var c in children[id])
+        {
+            if (c.IsSummary) foreach (var l in LeavesOf(c.Id, children)) yield return l;
+            else yield return c;
+        }
+    }
+
+    private string Summary
+    {
+        get
+        {
+            var p = Gantt!.Project;
+            var parts = new List<string>
+            {
+                $"{p.StartDate.ToString("MMM d", Us)} – {p.FinishDate.ToString("MMM d", Us)}",
+                $"{Math.Round(p.PercentComplete)}% complete"
+            };
+            if (Gantt.Tasks.Where(t => t.IsMilestone).OrderBy(t => t.Start).LastOrDefault() is { } last)
+                parts.Add($"{Abbrev(last.Name)} {last.Start.ToString("MMM d", Us)}");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>"General availability" → "GA", otherwise the milestone name.</summary>
+    private static string Abbrev(string name) =>
+        name.Equals("General availability", StringComparison.OrdinalIgnoreCase) ? "GA" : name;
+
+    private static string Dates(GanttTask t) => $"{t.Start.ToString("MMM d", Us)} – {t.Finish.ToString("MMM d", Us)}";
+
+    private string When(GanttTask t) => ScheduleMath.StatusOf(t, Today) switch
+    {
+        ScheduleStatus.Done => "Done",
+        ScheduleStatus.Behind => $"Behind · {t.PercentComplete}%",
+        ScheduleStatus.InProgress => $"{t.PercentComplete}%",
+        _ => t.Start.ToString("MMM d", Us)
+    };
+
+    private string DotClass(GanttTask t) => ScheduleMath.StatusOf(t, Today) switch
+    {
+        ScheduleStatus.Done => "ph-dot ph-dot--done",
+        ScheduleStatus.Behind => "ph-dot ph-dot--behind",
+        ScheduleStatus.InProgress => "ph-dot ph-dot--active",
+        _ => "ph-dot"
+    };
+}

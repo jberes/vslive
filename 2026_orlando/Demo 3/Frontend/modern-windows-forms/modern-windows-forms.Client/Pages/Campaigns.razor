@@ -1,0 +1,237 @@
+@page "/campaigns"
+@using modern_windows_forms.Client.Models.Marketing
+
+<PageTitle>Campaigns · BusinessApp</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div class="page-head__text">
+            <h1 class="page-title">Campaigns</h1>
+            <p class="page-lede">
+                @if (campaigns is null)
+                {
+                    <span class="skeleton lede-skeleton"></span>
+                }
+                else
+                {
+                    @($"Campaigns running in the last 12 months: {CountByStatus("Active")} active, {CountByStatus("Draft")} draft.")
+                }
+            </p>
+        </div>
+        <IgbButton Variant="ButtonVariant.Contained" @onclick="NewCampaignAsync">
+            <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+            New campaign
+        </IgbButton>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="wifi-off" Collection="@Icons.Collection" aria-hidden="true" />
+            <span class="banner__text"><strong>Couldn't load campaigns.</strong> @loadError.Detail</span>
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="LoadAsync">Retry</IgbButton>
+        </div>
+    }
+
+    @* KPI row (plain HTML tiles per the component-mapping guidance; spend bar is IgbLinearProgress) *@
+    <div class="kpi-grid">
+        @if (campaigns is null)
+        {
+            @for (var i = 0; i < 4; i++)
+            {
+                <div class="kpi" aria-hidden="true">
+                    <span class="skeleton sk-label"></span>
+                    <span class="skeleton sk-value"></span>
+                    <span class="skeleton sk-sub"></span>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="kpi">
+                <span class="kpi__label">Spend vs budget</span>
+                <span class="kpi__value">@Format.Compact(TotalSpend)</span>
+                <span class="kpi__sub">of @Format.Compact(TotalBudget) budget · @BudgetUsed% used</span>
+                <IgbLinearProgress class="lp--teal kpi-bar" Value="@Math.Min(100, BudgetUsed)" Max="100" HideLabel="true" aria-label="Budget used" />
+            </div>
+            <div class="kpi">
+                <span class="kpi__label">Leads generated</span>
+                <span class="kpi__value">@Format.Number(TotalLeads)</span>
+                <span class="kpi__sub">@campaigns.Count campaigns · @Format.Number(TotalClicks) clicks</span>
+            </div>
+            <div class="kpi">
+                <span class="kpi__label">Cost per lead</span>
+                <span class="kpi__value">@(TotalLeads == 0 ? "—" : Format.Money0(TotalSpend / TotalLeads))</span>
+                <span class="kpi__sub">Spend ÷ campaign leads</span>
+            </div>
+            <div class="kpi">
+                <span class="kpi__label">Won from campaigns</span>
+                <span class="kpi__value">@TotalWon · @Format.Compact(TotalWonValue)</span>
+                <span class="kpi__sub">@(TotalLeads == 0 ? 0 : Math.Round(TotalWon * 100m / TotalLeads))% of campaign leads won</span>
+            </div>
+        }
+    </div>
+
+    <section class="panel">
+        <div class="panel__head">
+            <h2 class="panel__title">All campaigns</h2>
+            <div class="filters" role="group" aria-label="Status filter">
+                @foreach (var (key, label) in Filters)
+                {
+                    <IgbChip class="@(statusFilter == key ? "pill pill--on" : "pill")" aria-pressed="@(statusFilter == key ? "true" : "false")"
+                             @onclick="() => SetFilter(key)">@label</IgbChip>
+                }
+            </div>
+        </div>
+        @if (campaigns is null && loadError is null)
+        {
+            <div class="grid-loading" aria-label="Loading campaigns">
+                <IgbLinearProgress Indeterminate="true" HideLabel="true" />
+                @for (var i = 0; i < 6; i++)
+                {
+                    <div class="sk-grid-row" aria-hidden="true"><span class="skeleton sk-name"></span><span class="skeleton sk-pill"></span><span class="skeleton sk-bar"></span></div>
+                }
+            </div>
+        }
+        else if (rows.Count == 0)
+        {
+            <div class="empty">No @(statusFilter.ToLowerInvariant()) campaigns in the last 12 months.</div>
+        }
+        else
+        {
+            @* IgbGrid: single row selection drives the funnel panel; spend vs budget is an IgbLinearProgress cell template *@
+            <IgbGrid @ref="grid" class="campaign-grid" Data="rows" PrimaryKey="Id" AutoGenerate="false"
+                     Height="562px" Width="100%" RowHeight="52"
+                     RowSelection="GridSelectionMode.Single" HideRowSelectors="true"
+                     SelectedRows="selectedKeys" RowSelectionChanging="OnRowSelectionChanging">
+                <IgbColumn Field="Name" Header="Campaign" Width="26%" Sortable="true">
+                    <BodyTemplate>
+                        @{ var c = (IgbCellTemplateContext)context; }
+                        <span class="cell-name" title="@c.Cell.Value">@c.Cell.Value</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="Channel" Header="Channel" Width="104px" Sortable="true" />
+                <IgbColumn Field="Status" Header="Status" Width="118px" Sortable="true">
+                    <BodyTemplate>
+                        @{ var c = (IgbCellTemplateContext)context; }
+                        <StatusChip Text="@(c.Cell.Value?.ToString())" Tone="@StatusTone(c.Cell.Value?.ToString())" />
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="Dates" Header="Dates" Width="150px" />
+                <IgbColumn Field="SpendPercent" Header="Spend vs budget" Width="18%" DataType="GridColumnDataType.Number" Sortable="true">
+                    <BodyTemplate>
+                        @{
+                            var c = (IgbCellTemplateContext)context;
+                            var row = RowFor(c.Cell.Id.RowID);
+                        }
+                        @if (row is not null)
+                        {
+                            <div class="spend">
+                                <div class="spend__text">
+                                    <span>@Format.Compact(row.ActualCost) of @Format.Compact(row.Budget)</span>
+                                    <span class="@(row.SpendPercent > 100 ? "spend__pct spend__pct--over" : "spend__pct")">@Math.Round(row.SpendPercent)%</span>
+                                </div>
+                                <IgbLinearProgress class="@(row.SpendPercent > 100 ? "lp--red spend__bar" : "lp--teal spend__bar")"
+                                                   Value="@Math.Min(100, row.SpendPercent)" Max="100" HideLabel="true" />
+                            </div>
+                        }
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="Leads" Header="Leads" Width="76px" DataType="GridColumnDataType.Number" Sortable="true" />
+                <IgbColumn Field="Ctr" Header="CTR" Width="76px" />
+                <IgbColumn Field="Owner" Header="Owner" Sortable="true" />
+            </IgbGrid>
+        }
+    </section>
+
+    <div class="lower">
+        <section class="panel panel--pad funnel-panel">
+            <div class="funnel-head">
+                <div class="funnel-head__text">
+                    <h2 class="panel__title panel__title--sm">Lead funnel · @(selected?.Campaign.Name ?? "…")</h2>
+                    @if (selected is not null)
+                    {
+                        <div class="panel__sub">@ChannelLabel(selected.Campaign.Channel) · @selected.Campaign.Status · @DateRange(selected.Campaign) · <span class="mono">GET /api/campaigns/@selected.Campaign.Id/performance</span></div>
+                    }
+                </div>
+                @if (selected is not null)
+                {
+                    <dl class="stats">
+                        <div><dt>Impressions</dt><dd>@Format.Number(selected.Campaign.Impressions)</dd></div>
+                        <div><dt>Clicks</dt><dd>@Format.Number(selected.Campaign.Clicks)</dd></div>
+                        <div><dt>Won value</dt><dd>@(selected.Campaign.WonValue > 0 ? Format.Compact(selected.Campaign.WonValue) : "—")</dd></div>
+                    </dl>
+                }
+            </div>
+
+            @if (performanceLoading)
+            {
+                <IgbLinearProgress Indeterminate="true" HideLabel="true" />
+                <div class="funnel-skeleton" aria-hidden="true">
+                    @for (var i = 0; i < 5; i++) { <span class="skeleton" style="--w: @(100 - i * 18)%"></span> }
+                </div>
+            }
+            else if (performanceError is not null)
+            {
+                <div class="banner banner--error" role="alert">
+                    <span class="banner__text"><strong>Couldn't load the funnel.</strong> @performanceError.Detail</span>
+                    <IgbButton Variant="ButtonVariant.Outlined" @onclick="() => LoadPerformanceAsync(selectedId)">Retry</IgbButton>
+                </div>
+            }
+            else if (funnel.Count > 0)
+            {
+                <div class="funnel">
+                    <div class="funnel__chart">
+                        <ApexChart @key="selectedId" TItem="FunnelStage" Height="@("240")" Options="funnelOptions">
+                            <ApexPointSeries TItem="FunnelStage" Items="funnel" Name="Leads" SeriesType="SeriesType.Bar"
+                                             XValue="s => s.Label" YValue="s => (decimal)s.Count" />
+                        </ApexChart>
+                    </div>
+                    <ul class="funnel__conv" aria-label="Stage conversion">
+                        @foreach (var stage in funnel)
+                        {
+                            <li><span class="conv-label">@stage.Label</span><span class="conv-value num">@stage.Conversion</span></li>
+                        }
+                    </ul>
+                </div>
+                @if (selected?.Campaign.Status == "Active")
+                {
+                    <div class="note">Still running: most leads have not reached qualification yet.</div>
+                }
+            }
+        </section>
+
+        <section class="panel panel--pad channel-panel">
+            <div>
+                <h2 class="panel__title panel__title--sm">Spend by channel</h2>
+                <div class="panel__sub">Last 12 months · @Format.Compact(TotalSpend)</div>
+            </div>
+            @if (channels.Count > 0)
+            {
+                <div class="donut-row">
+                    <div class="donut" role="img" aria-label="Donut chart of spend by channel">
+                        <ApexChart TItem="ChannelSpend" Height="@("200")" Width="@("200")" Options="donutOptions">
+                            <ApexPointSeries TItem="ChannelSpend" Items="channels" Name="Spend" SeriesType="SeriesType.Donut"
+                                             XValue="c => c.Name" YValue="c => c.Spend" />
+                        </ApexChart>
+                    </div>
+                    <ul class="legend">
+                        @foreach (var ch in channels)
+                        {
+                            <li>
+                                <span class="sw" style="--sw: @ch.Color"></span>
+                                <span class="legend__name">@ch.Name</span>
+                                <span class="num muted">@Format.Compact(ch.Spend)</span>
+                                <span class="legend__pct">@Math.Round(ch.Spend * 100 / Math.Max(1, TotalSpend))%</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+            else if (campaigns is null)
+            {
+                <span class="skeleton donut-skeleton" aria-hidden="true"></span>
+            }
+        </section>
+    </div>
+</div>

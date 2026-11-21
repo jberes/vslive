@@ -1,0 +1,865 @@
+@font-face {
+    font-family: "Titillium Web";
+    src: url("../assets/fonts/titillium-web-regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Titillium Web";
+    src: url("../assets/fonts/titillium-web-semibold.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+}
+
+:root {
+    --ig-font-family: "Titillium Web", sans-serif;
+    --ig-primary-800: #0070ba;
+    --ig-gray-100: #f5f5f5;
+    --ig-gray-200: #ededed;
+    --ig-gray-300: #e0e0e0;
+    --ig-gray-400: #bdbdbd;
+    --ig-gray-700: #616161;
+    --ig-gray-900: #212121;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+    background: white;
+    color: var(--ig-gray-900);
+    font-family: var(--ig-font-family);
+    font-size: 16px;
+}
+
+button, input, select {
+    font: inherit;
+}
+
+button, a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button {
+    border: 0;
+}
+
+button:not(:disabled) {
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 1;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--ig-primary-800);
+    outline-offset: 2px;
+}
+
+h1, h2, h3, p {
+    margin: 0;
+}
+
+h1[tabindex="-1"]:focus {
+    outline: none;
+}
+
+img {
+    display: block;
+}
+
+.app-shell {
+    min-height: 100vh;
+}
+
+.app-header {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    padding: 10px 20px;
+    background: var(--ig-info-500);
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+}
+
+.header-left {
+    gap: 8px;
+}
+
+.header-right {
+    gap: 16px;
+}
+
+.brand-mark {
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 50%;
+    background: white;
+}
+
+.brand-mark img {
+    width: 30px;
+    height: 30px;
+}
+
+.home-menu {
+    position: relative;
+}
+
+.home-button,
+.header-task-button::part(base),
+.text-action::part(base) {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 4px;
+    font-family: var(--ig-font-family);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 16px;
+    letter-spacing: .75px;
+    text-transform: uppercase;
+}
+
+.home-button {
+    display: flex;
+    align-items: center;
+    color: white;
+    background: transparent;
+}
+
+.home-button img {
+    margin-inline-start: 12px;
+}
+
+.header-task-button::part(base) {
+    min-width: 96px;
+    color: black;
+    background: white;
+    box-shadow: 0 1px 5px #00000042, 0 2px 2px #0000001f, 0 3px 1px -2px #00000014;
+}
+
+.header-task-button::part(prefix),
+.text-action::part(prefix) {
+    margin-inline-end: 12px;
+}
+
+.home-menu-popup {
+    position: absolute;
+    top: 42px;
+    left: 0;
+    min-width: 176px;
+    padding: 8px 0;
+    border-radius: 4px;
+    background: white;
+    box-shadow: 0 3px 12px #0003;
+}
+
+.home-menu-popup a {
+    display: block;
+    padding: 8px 16px;
+    color: var(--ig-gray-900);
+    text-decoration: none;
+}
+
+.home-menu-popup a:hover {
+    background: var(--ig-gray-100);
+}
+
+.header-icon {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    place-items: center;
+    background: transparent;
+}
+
+.profile-avatar, .task-avatar {
+    --ig-avatar-size: 40px;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+}
+
+.workspace-shell {
+    display: flex;
+    align-items: stretch;
+    min-height: calc(100vh - 60px);
+}
+
+.navigation-rail {
+    display: flex;
+    flex: 0 0 56px;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 56px;
+    padding: 8px 7px 8px 8px;
+    border-right: 1px solid var(--ig-gray-300);
+    background: white;
+}
+
+.rail-link {
+    position: relative;
+    display: grid;
+    flex: 0 0 48px;
+    width: 40px;
+    height: 48px;
+    padding: 0;
+    place-items: center;
+    background: transparent;
+}
+
+.rail-link::before {
+    position: absolute;
+    inset: 4px 0;
+    border-radius: 4px;
+    content: "";
+}
+
+.rail-link.selected::before, .rail-link.active::before {
+    background: rgb(0 153 255 / 12%);
+}
+
+.rail-link img {
+    position: relative;
+}
+
+.rail-icon-active, .rail-link.selected .rail-icon-default, .rail-link.active .rail-icon-default {
+    display: none;
+}
+
+.rail-link.selected .rail-icon-active, .rail-link.active .rail-icon-active {
+    display: block;
+}
+
+.section-sidebar {
+    flex: 0 0 250px;
+    width: 250px;
+    padding: 28px 16px;
+    background: var(--ig-gray-100);
+}
+
+.section-sidebar h2 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .15px;
+}
+
+.dashboard-sidebar-list {
+    margin-top: 24px;
+}
+
+.sidebar-list {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.sidebar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--ig-gray-900);
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: .15px;
+    text-align: left;
+}
+
+.sidebar-row:not(:disabled):hover,
+.my-tasks-link:hover {
+    background: rgb(0 0 0 / 5%);
+    border-radius: 4px;
+}
+
+.my-tasks-link {
+    display: block;
+    margin-top: 24px;
+    padding: 0;
+    background: transparent;
+    color: var(--ig-gray-900);
+    line-height: 28px;
+    letter-spacing: .44px;
+}
+
+.sidebar-group {
+    margin-top: 24px;
+    padding-top: 8px;
+}
+
+.sidebar-group h3 {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .1px;
+    text-transform: uppercase;
+}
+
+.sidebar-group .sidebar-list {
+    margin-top: 16px;
+}
+
+.sidebar-action {
+    margin-top: 16px;
+}
+
+.text-action::part(base) {
+    color: var(--ig-secondary-500);
+    background: transparent;
+}
+
+.text-action[disabled]::part(base) {
+    opacity: 1;
+    color: var(--ig-secondary-500);
+}
+
+.page-content {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 14px 40px 32px;
+}
+
+.page-content h1 {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 28px;
+}
+
+.dashboard-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+.dashboard-card {
+    --ig-card-resting-shadow: 0 1px 5px #00000042, 0 2px 2px #0000001f, 0 3px 1px -2px #00000014;
+    --ig-card-border-radius: 4px;
+    display: flex;
+    flex: 0 0 240px;
+    flex-direction: column;
+    width: 240px;
+    height: 320px;
+    overflow: hidden;
+}
+
+.dashboard-card-media {
+    display: block;
+    flex: 0 0 188px;
+    width: 100%;
+    height: 188px;
+    overflow: hidden;
+}
+
+.dashboard-card-media img {
+    width: 127.74%;
+    max-width: none;
+    height: 100%;
+    margin-left: -.62%;
+}
+
+.dashboard-card-content {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    gap: 24px;
+    padding: 16px 16px 8px;
+}
+
+.dashboard-card-header {
+    display: block;
+    padding: 0;
+}
+
+.dashboard-card-header [slot="title"] {
+    color: var(--ig-gray-900);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .15px;
+}
+
+.dashboard-card-header [slot="subtitle"] {
+    color: var(--ig-gray-900);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .1px;
+}
+
+.dashboard-card-actions {
+    display: block;
+    padding: 0;
+}
+
+.card-action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.card-icon-button, .toolbar-icon {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    place-items: center;
+    border-radius: 50%;
+    background: transparent;
+}
+
+.card-icon-button:not(:disabled):hover,
+.task-edit-button:hover {
+    background: rgb(0 0 0 / 6%);
+}
+
+.floating-add {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    display: grid;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ig-secondary-500);
+    box-shadow: 0 3px 5px -1px #00000042, 0 6px 10px #0000001f, 0 1px 18px #00000014;
+}
+
+.tasks-page-header {
+    display: flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.tasks-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tasks-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 466px) minmax(0, 360px);
+    align-items: start;
+    gap: 40px;
+    margin-top: 32px;
+}
+
+.task-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+}
+
+.task-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.task-section-heading {
+    width: 100%;
+}
+
+.task-section-heading h2, .release-calendar h2 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .15px;
+}
+
+.task-section-heading h2.large-heading {
+    font-size: 24px;
+    line-height: 28px;
+    letter-spacing: 0;
+}
+
+.task-section-heading p {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: .1px;
+}
+
+.task-section-heading h2:not(.large-heading) + p {
+    margin-top: 2px;
+}
+
+.task-list, .release-list {
+    display: block;
+    width: 100%;
+    background: white;
+}
+
+.task-list igc-list-item, .release-list igc-list-item {
+    padding: 8px 16px;
+    font-family: var(--ig-font-family);
+}
+
+.task-list igc-list-item::part(content),
+.release-list igc-list-item::part(content) {
+    min-width: 0;
+}
+
+.task-list igc-list-item [slot="title"],
+.release-list igc-list-item [slot="title"] {
+    color: var(--ig-gray-900);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: .15px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.task-list igc-list-item [slot="subtitle"],
+.release-list igc-list-item [slot="subtitle"] {
+    color: var(--ig-gray-700);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    letter-spacing: .25px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.task-edit-button {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    place-items: center;
+    border-radius: 50%;
+    background: transparent;
+}
+
+.calendar-column {
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.calendar-frame {
+    position: relative;
+    min-width: 314px;
+}
+
+.team-calendar {
+    --ig-calendar-content-background: #fff;
+    --ig-calendar-header-background: #df1b74;
+    --ig-calendar-date-selected-background: #df1b74;
+    --ig-calendar-date-selected-foreground: #fff;
+    --ig-calendar-week-number-background: #ededed;
+    --ig-size: var(--ig-size-medium);
+    display: block;
+    width: 100%;
+    min-height: 472px;
+}
+
+.team-calendar::part(navigation-button) {
+    color: transparent;
+}
+
+.team-calendar::part(navigation-button):focus-visible {
+    outline: 2px solid var(--ig-primary-800);
+    outline-offset: 2px;
+}
+
+.calendar-arrows {
+    position: absolute;
+    top: 132px;
+    right: 24px;
+    display: flex;
+    gap: 24px;
+    pointer-events: none;
+}
+
+.release-calendar {
+    margin-top: 32px;
+}
+
+.release-list {
+    margin-top: 16px;
+}
+
+.release-avatar {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    background: var(--ig-gray-400);
+}
+
+.empty-state {
+    padding: 16px 0;
+    color: var(--ig-gray-700);
+}
+
+.dialog-backdrop {
+    position: fixed;
+    z-index: 10;
+    inset: 0;
+    display: grid;
+    padding: 24px;
+    place-items: center;
+    overflow-y: auto;
+    background: rgb(0 0 0 / 40%);
+}
+
+.task-dialog {
+    width: min(100%, 440px);
+    padding: 24px;
+    border-radius: 4px;
+    background: white;
+    box-shadow: 0 6px 24px #0003;
+}
+
+.task-dialog h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.task-dialog label {
+    display: block;
+    margin: 16px 0 4px;
+    font-weight: 600;
+}
+
+.task-dialog input, .task-dialog select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--ig-gray-400);
+    border-radius: 4px;
+    background: white;
+    color: var(--ig-gray-900);
+}
+
+.validation-message {
+    display: block;
+    margin-top: 4px;
+    color: #b00020;
+    font-size: 14px;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.dialog-actions button {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .75px;
+    text-transform: uppercase;
+}
+
+.dialog-cancel {
+    background: transparent;
+    color: var(--ig-secondary-500);
+}
+
+.dialog-save {
+    background: var(--ig-secondary-500);
+    color: white;
+}
+
+#blazor-error-ui {
+    position: fixed;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: none;
+    padding: 10px 20px;
+    background: #fff4ce;
+    box-shadow: 0 -1px 4px #0003;
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    right: 12px;
+    background: transparent;
+}
+
+.loading-progress {
+    position: absolute;
+    inset: 20vh 0 auto;
+    width: 8rem;
+    height: 8rem;
+    margin: auto;
+}
+
+.loading-progress circle {
+    fill: none;
+    stroke: var(--ig-gray-300);
+    stroke-width: .6rem;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+.loading-progress circle:last-child {
+    stroke: var(--ig-info-500);
+    stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * .8), 500%;
+}
+
+.loading-progress-text {
+    position: absolute;
+    inset: calc(20vh + 3.25rem) 0 auto;
+    text-align: center;
+}
+
+.loading-progress-text::after {
+    content: var(--blazor-load-percentage-text, "Loading");
+}
+
+@media (max-width: 1200px) {
+    .tasks-columns {
+        grid-template-columns: minmax(0, 466px);
+    }
+
+    .calendar-column {
+        width: min(100%, 360px);
+    }
+}
+
+@media (max-width: 800px) {
+    .section-sidebar {
+        flex-basis: 210px;
+        width: 210px;
+    }
+
+    .page-content {
+        padding-right: 24px;
+        padding-left: 24px;
+    }
+
+    .tasks-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .tasks-toolbar {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 600px) {
+    .app-header {
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+
+    .header-right {
+        gap: 10px;
+    }
+
+    .header-icon {
+        display: none;
+    }
+
+    .workspace-shell {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+    }
+
+    .navigation-rail {
+        grid-column: 1;
+        grid-row: 1 / 3;
+    }
+
+    .section-sidebar {
+        grid-column: 2;
+        grid-row: 1;
+        width: auto;
+        min-width: 0;
+        padding: 12px 16px;
+    }
+
+    .dashboard-sidebar-list {
+        margin-top: 8px;
+    }
+
+    .sidebar-list {
+        flex-direction: row;
+        overflow-x: auto;
+    }
+
+    .sidebar-row {
+        flex: 0 0 auto;
+        width: auto;
+        gap: 12px;
+    }
+
+    .my-tasks-link {
+        margin-top: 8px;
+    }
+
+    .sidebar-group {
+        margin-top: 8px;
+        padding-top: 0;
+    }
+
+    .sidebar-group .sidebar-list {
+        margin-top: 4px;
+    }
+
+    .sidebar-action, .filters-group {
+        display: none;
+    }
+
+    .page-content {
+        grid-column: 2;
+        grid-row: 2;
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .task-list igc-list-item, .release-list igc-list-item {
+        gap: 8px;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .dashboard-card {
+        flex-basis: min(240px, 100%);
+        max-width: 100%;
+    }
+}

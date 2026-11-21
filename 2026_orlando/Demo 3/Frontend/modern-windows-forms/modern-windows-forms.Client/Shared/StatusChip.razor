@@ -1,0 +1,21 @@
+@* Status pill: IgbChip tinted with the design system's status colors (see app.css igc-chip.status--*). *@
+<IgbChip class="@CssClass">@Text</IgbChip>
+
+@code {
+    [Parameter, EditorRequired] public string? Text { get; set; }
+
+    /// <summary>Explicit tone (info, success, warning, error, neutral, violet); inferred from <see cref="Text"/> when omitted.</summary>
+    [Parameter] public string? Tone { get; set; }
+
+    private string CssClass => "status status--" + (Tone ?? ToneFor(Text));
+
+    public static string ToneFor(string? status) => status?.ToLowerInvariant() switch
+    {
+        "shipped" or "completed" or "done" or "won" or "active customer" or "in stock" => "success",
+        "overdue" or "behind" or "lost" or "out of stock" or "discontinued" or "cancelled" => "error",
+        "reorder" or "low stock" or "at risk" or "paused" or "proposal" => "warning",
+        "draft" or "not started" or "planned" or "new" or "inactive" => "neutral",
+        "qualified" => "violet",
+        _ => "info"
+    };
+}

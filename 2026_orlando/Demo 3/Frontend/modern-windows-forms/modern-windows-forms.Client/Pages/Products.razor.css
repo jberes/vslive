@@ -1,0 +1,74 @@
+.lede-skeleton { display: inline-block; width: 360px; max-width: 100%; height: 14px; vertical-align: middle; }
+::deep igc-button igc-icon { --size: 16px; width: 16px; height: 16px; }
+.banner ::deep igc-icon { flex: none; --size: 18px; width: 18px; height: 18px; margin-top: 2px; }
+.banner > span { flex: 1; }
+::deep igc-button.retry-btn { --ig-size: var(--ig-size-small); flex: none; }
+
+/* ---------- Category pills (IgbChip) ---------- */
+.pills { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pill-skeleton { width: 120px; height: 36px; border-radius: var(--radius-full); }
+::deep igc-chip.cat-pill { --ig-size: var(--ig-size-large); cursor: pointer; }
+::deep igc-chip.cat-pill::part(base) {
+    height: 36px; padding: 0 6px 0 14px; gap: 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-primary); color: var(--color-text-primary);
+    font-size: 14px; font-weight: 500;
+}
+::deep igc-chip.cat-pill:hover::part(base) { background: var(--color-hover-bg); }
+::deep igc-chip.cat-pill--on::part(base),
+::deep igc-chip.cat-pill--on:hover::part(base) { background: var(--color-action-brand); border-color: var(--color-action-brand); color: #fff; font-weight: 600; }
+.pill-count {
+    margin-left: 8px; font-size: 12px; font-weight: 600; line-height: 22px; min-width: 22px; text-align: center;
+    padding: 0 4px; box-sizing: border-box; border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary); display: inline-block;
+}
+::deep igc-chip.cat-pill--on .pill-count { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+/* ---------- Category heading ---------- */
+.cat-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); }
+.cat-title { font-size: 24px; line-height: 30px; font-weight: 600; }
+
+/* ---------- KPIs ---------- */
+.kpi__top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.delta { font-size: 12px; font-weight: 600; padding: 0 8px; line-height: 20px; border-radius: var(--radius-full); white-space: nowrap; }
+.delta--up { background: var(--color-success-bg); color: var(--color-success-text); }
+.delta--down { background: var(--color-error-bg); color: var(--color-error-text); }
+.delta--warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.kpi__sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sk-label { height: 12px; width: 50%; }
+.sk-value { height: 28px; width: 70%; }
+
+/* ---------- Charts ---------- */
+.chart-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.chart-panel { display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); }
+.chart-empty { padding: var(--space-10) 0; text-align: center; }
+.sk-chart { height: 250px; }
+
+/* ---------- Stock grid ---------- */
+.stock-panel { overflow: hidden; }
+::deep igc-chip.toggle-chip { --ig-size: var(--ig-size-medium); }
+::deep igc-chip.toggle-chip igc-icon { --size: 14px; width: 14px; height: 14px; }
+.stock-grid-wrap { border-top: 1px solid var(--sample-grid-border); }
+::deep igc-grid.stock-grid { border: 0; --ig-size: var(--ig-size-medium); }
+.stock-grid-wrap ::deep .igx-grid-th { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; font-weight: 600; color: var(--color-text-secondary); }
+.stock-grid-wrap ::deep .igx-grid__td { font-size: 14px; }
+
+.stock-grid-wrap ::deep .stock-cell { display: flex; align-items: center; gap: 10px; width: 100%; }
+.stock-grid-wrap ::deep .stock-track { position: relative; flex: 1; height: 8px; border-radius: var(--radius-full); background: var(--color-bg-tertiary); --bar: var(--color-success); }
+.stock-grid-wrap ::deep .stock-track--low { --bar: var(--chart-3); }
+.stock-grid-wrap ::deep .stock-track--out { --bar: var(--color-error); }
+.stock-grid-wrap ::deep .stock-track--off { --bar: var(--color-border-strong); }
+.stock-grid-wrap ::deep .stock-fill { position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill); border-radius: var(--radius-full); background: var(--bar); }
+.stock-grid-wrap ::deep .stock-tick { position: absolute; top: -3px; bottom: -3px; left: var(--tick); width: 2px; border-radius: 1px; background: var(--color-text-primary); }
+.stock-grid-wrap ::deep .stock-text { width: 64px; font-size: 12px; color: var(--color-text-secondary); }
+.stock-grid-wrap ::deep .on-order { display: block; width: 100%; text-align: right; }
+
+.grid-empty { padding: var(--space-8) var(--space-5); text-align: center; color: var(--color-text-secondary); border-top: 1px solid var(--sample-grid-border); }
+.grid-empty__title { font-weight: 600; color: var(--color-text-primary); }
+.sk-grid { display: block; height: 320px; margin-top: var(--space-3); }
+
+@media (max-width: 1100px) {
+    .chart-row { grid-template-columns: minmax(0, 1fr); }
+}

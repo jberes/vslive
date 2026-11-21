@@ -1,0 +1,861 @@
+#!/usr/bin/env python3
+"""
+Generates dispatch.db - a realistic, internally consistent field-service dispatch dataset.
+
+Usage:
+    python3 generate_db.py                 # anchor "today" = current date
+    python3 generate_db.py --anchor 2026-11-11 --out dispatch.db --seed 42
+
+The simulation:
+  * 120 days of history, today, and 14 days of forward bookings.
+  * Each technician works a timeline across their shift; jobs are placed by region,
+    required skill/proficiency, daily capacity and travel time.
+  * "Today" is frozen at a simulated clock (default 11:30). Jobs before that time are
+    completed/in-progress, later ones are assigned/dispatched, and some are unassigned,
+    overrunning or already breaching SLA - so the SLA-risk screen has a real story.
+
+The API rebases every date on startup so the anchor day always becomes the real today.
+Only the Python standard library is used.
+"""
+import argparse
+import math
+import os
+import random
+import sqlite3
+from datetime import date, datetime, time, timedelta
+
+GENERATOR_VERSION = "1.0.0"
+HISTORY_DAYS = 60
+FUTURE_DAYS = 14
+SIM_NOW_TIME = time(11, 30)
+
+FIRST_NAMES = """James Mary Robert Patricia John Jennifer Michael Linda David Elizabeth William Barbara Richard Susan Joseph Jessica
+Thomas Sarah Christopher Karen Charles Lisa Daniel Nancy Matthew Betty Anthony Sandra Mark Margaret Donald Ashley Steven Kimberly
+Andrew Emily Paul Donna Joshua Michelle Kenneth Carol Kevin Amanda Brian Melissa George Deborah Timothy Stephanie Ronald Rebecca
+Jason Sharon Edward Laura Jeffrey Cynthia Ryan Dorothy Jacob Amy Gary Kathleen Nicholas Angela Eric Shirley Jonathan Brenda Stephen
+Emma Larry Pamela Justin Nicole Scott Anna Brandon Samantha Benjamin Katherine Samuel Christine Gregory Debra Alexander Rachel Patrick
+Carolyn Frank Janet Raymond Maria Jack Olivia Dennis Heather Jerry Helen Tyler Catherine Aaron Diane Jose Julie Adam Victoria Nathan
+Joyce Henry Lauren Zachary Kelly Douglas Christina Peter Ruth Kyle Joan Noah Virginia Ethan Judith Jeremy Evelyn Walter Hannah
+Christian Andrea Keith Megan Roger Cheryl Terry Jacqueline Austin Madison Sean Teresa Gerald Abigail Carl Sophia Harold Martha Dylan
+Sara Arthur Gloria Lawrence Janice Jordan Kathryn Jesse Ann Bryan Isabella Billy Judy Bruce Charlotte Gabriel Julia Joe Grace Logan
+Amber Alan Alice Juan Jean Albert Denise Willie Frances Elijah Danielle Wayne Marilyn Randy Natalie Vincent Diana Mason Brittany
+Roy Beverly Ralph Doris Bobby Kayla Russell Alexis Bradley Lori Philip Tiffany Eugene Marie Luis Priya Carlos Mei Ahmed Fatima
+Diego Sofia Hiroshi Yuki Omar Aisha Mateo Valentina Wei Ling Rahul Ananya Kwame Amara Ivan Elena Mohammed Leila""".split()
+
+LAST_NAMES = """Smith Johnson Williams Brown Jones Garcia Miller Davis Rodriguez Martinez Hernandez Lopez Gonzalez Wilson Anderson
+Thomas Taylor Moore Jackson Martin Lee Perez Thompson White Harris Sanchez Clark Ramirez Lewis Robinson Walker Young Allen King
+Wright Scott Torres Nguyen Hill Flores Green Adams Nelson Baker Hall Rivera Campbell Mitchell Carter Roberts Gomez Phillips Evans
+Turner Diaz Parker Cruz Edwards Collins Reyes Stewart Morris Morales Murphy Cook Rogers Gutierrez Ortiz Morgan Cooper Peterson
+Bailey Reed Kelly Howard Ramos Kim Cox Ward Richardson Watson Brooks Chavez Wood James Bennett Gray Mendoza Ruiz Hughes Price
+Alvarez Castillo Sanders Patel Myers Long Ross Foster Jimenez Powell Jenkins Perry Russell Sullivan Bell Coleman Butler Henderson
+Barnes Gonzales Fisher Vasquez Simmons Romero Jordan Patterson Alexander Hamilton Graham Reynolds Griffin Wallace Moreno West Cole
+Hayes Bryant Herrera Gibson Ellis Tran Medina Aguilar Stevens Murray Ford Castro Marshall Owens Harrison Fernandez McDonald Woods
+Washington Kennedy Wells Vargas Henry Chen Freeman Webb Tucker Guzman Burns Crawford Olson Simpson Porter Hunter Gordon Mendez
+Silva Shaw Snyder Mason Dixon Munoz Hunt Hicks Holmes Palmer Wagner Black Robertson Boyd Rose Stone Salazar Fox Warren Mills
+Meyer Rice Schmidt Garza Daniels Ferguson Nichols Stephens Soto Weaver Ryan Gardner Payne Grant Dunn Kelley Spencer Hawkins Arnold
+Pierce Vazquez Hansen Peters Santos Hart Bradley Knight Elliott Cunningham Duncan Armstrong Hudson Carroll Lane Riley Andrews
+Alvarado Ray Delgado Berry Perkins Hoffman Johnston Matthews Pena Richards Contreras Willis Carpenter Lawrence Sandoval Okafor
+Nakamura Singh Kowalski Novak Haddad Abara Lindqvist OBrien""".split()
+
+STREET_NAMES = """Main Oak Pine Maple Cedar Elm Washington Lake Hill Park Walnut Spring North Ridge Church Willow Mill
+Sunset Jackson Cherry Highland Franklin Lincoln River Madison Center Chestnut Meadow Forest Valley Union Liberty Adams Jefferson
+Prospect Grove Broad Market Water High Bridge Commerce Industrial Harbor Airport Canal Station Summit Orchard Railroad""".split()
+STREET_SUFFIX = ["St", "Ave", "Blvd", "Rd", "Dr", "Ln", "Way", "Ct", "Pkwy", "Pl"]
+
+COMPANY_A = """Apex Summit Pinnacle Harbor Keystone Liberty Evergreen Riverside Granite Northstar Bluewater Ironwood Silverline
+Crestview Lakeshore Meridian Cornerstone Heritage Frontier Pioneer Redwood Sterling Beacon Horizon Oakridge Cascade Atlas Vertex
+Prairie Coastal Metro Union Capital Gateway Valley Highland Brightway Clearwater Golden Patriot Eagle Falcon Titan Unity Vista""".split()
+COMPANY_B = """Medical Center|Logistics|Foods|Properties|Manufacturing|Hospitality Group|Retail|Data Center|Labs|School District|
+Senior Living|Distribution|Hotels|Fitness|Dental Group|Credit Union|Bank|Pharmacy|Auto Group|Cold Storage|Brewing Co|
+Apartments|Plaza|Office Park|Grocers|Clinic|University|Church|Restaurants|Storage|Cinemas|Bakery|Supply Co|Industries""".replace("\n", "").split("|")
+
+REGIONS = [
+    # code, name, tz, lat, lng, depots [(city, state, zip, lat, lng)]
+    ("NE", "Northeast", "America/New_York", 42.36, -71.06, [("Boston", "MA", "02110", 42.36, -71.06), ("Providence", "RI", "02903", 41.82, -71.41), ("Hartford", "CT", "06103", 41.76, -72.68)]),
+    ("MA", "Mid-Atlantic", "America/New_York", 39.95, -75.17, [("Philadelphia", "PA", "19103", 39.95, -75.17), ("Baltimore", "MD", "21202", 39.29, -76.61), ("Newark", "NJ", "07102", 40.74, -74.17)]),
+    ("SE", "Southeast", "America/New_York", 33.75, -84.39, [("Atlanta", "GA", "30303", 33.75, -84.39), ("Charlotte", "NC", "28202", 35.23, -80.84), ("Orlando", "FL", "32801", 28.54, -81.38)]),
+    ("MW", "Midwest", "America/Chicago", 41.88, -87.63, [("Chicago", "IL", "60601", 41.88, -87.63), ("Milwaukee", "WI", "53202", 43.04, -87.91), ("Indianapolis", "IN", "46204", 39.77, -86.16)]),
+    ("SC", "South Central", "America/Chicago", 32.78, -96.80, [("Dallas", "TX", "75201", 32.78, -96.80), ("Houston", "TX", "77002", 29.76, -95.37), ("Austin", "TX", "78701", 30.27, -97.74)]),
+    ("WE", "West", "America/Denver", 39.74, -104.99, [("Denver", "CO", "80202", 39.74, -104.99), ("Phoenix", "AZ", "85004", 33.45, -112.07), ("Salt Lake City", "UT", "84101", 40.76, -111.89)]),
+]
+
+SKILLS = [
+    # code, name, category, requiresCert
+    ("HVAC-R", "HVAC Residential", "HVAC", 0),
+    ("HVAC-C", "HVAC Commercial", "HVAC", 1),
+    ("REFRIG", "Commercial Refrigeration", "HVAC", 1),
+    ("BOILER", "Boilers & Hydronics", "HVAC", 1),
+    ("BMS", "Building Controls / BMS", "Controls", 0),
+    ("ELEC", "Electrical", "Electrical", 1),
+    ("GEN", "Generators & Transfer Switches", "Electrical", 1),
+    ("SOLAR", "Solar PV & Battery", "Electrical", 1),
+    ("LOWV", "Low Voltage & Cabling", "Technology", 0),
+    ("NET", "Networking & Wi-Fi", "Technology", 0),
+    ("SEC", "Security & Access Control", "Life Safety", 0),
+    ("FIRE", "Fire Alarm Systems", "Life Safety", 1),
+    ("PLUMB", "Plumbing", "Plumbing", 1),
+    ("BACKF", "Backflow Testing", "Plumbing", 1),
+    ("APPL", "Commercial Appliances", "Equipment", 0),
+    ("DOOR", "Overhead & Automatic Doors", "Equipment", 0),
+]
+
+JOB_TYPES = [
+    # code, name, category, skill code, min proficiency, duration, price
+    ("HVR-REP", "HVAC No Cool / No Heat", "Repair", "HVAC-R", 2, 90, 189.0),
+    ("HVR-PM", "HVAC Seasonal Tune-Up", "Maintenance", "HVAC-R", 1, 60, 129.0),
+    ("HVR-INS", "Thermostat Install", "Install", "HVAC-R", 1, 45, 149.0),
+    ("HVC-REP", "RTU Repair", "Repair", "HVAC-C", 3, 150, 425.0),
+    ("HVC-PM", "RTU Preventive Maintenance", "Maintenance", "HVAC-C", 2, 120, 310.0),
+    ("HVC-EMR", "Commercial HVAC Emergency", "Emergency", "HVAC-C", 3, 180, 650.0),
+    ("REF-REP", "Walk-in Cooler Repair", "Repair", "REFRIG", 3, 150, 480.0),
+    ("REF-EMR", "Freezer Down Emergency", "Emergency", "REFRIG", 3, 180, 720.0),
+    ("REF-PM", "Refrigeration PM", "Maintenance", "REFRIG", 2, 90, 260.0),
+    ("BOI-REP", "Boiler Repair", "Repair", "BOILER", 3, 180, 520.0),
+    ("BOI-INS", "Annual Boiler Inspection", "Inspection", "BOILER", 2, 90, 240.0),
+    ("BMS-TRB", "Controls Troubleshooting", "Repair", "BMS", 3, 120, 380.0),
+    ("ELE-REP", "Electrical Fault Repair", "Repair", "ELEC", 2, 120, 295.0),
+    ("ELE-INS", "Circuit / Panel Install", "Install", "ELEC", 3, 240, 980.0),
+    ("ELE-EMR", "Power Loss Emergency", "Emergency", "ELEC", 3, 150, 690.0),
+    ("GEN-PM", "Generator Load Bank Test", "Maintenance", "GEN", 2, 120, 420.0),
+    ("GEN-REP", "Generator Repair", "Repair", "GEN", 3, 180, 640.0),
+    ("SOL-INS", "Solar Inverter Replacement", "Install", "SOLAR", 3, 180, 1150.0),
+    ("SOL-INSP", "Solar Array Inspection", "Inspection", "SOLAR", 2, 90, 210.0),
+    ("LV-INS", "Structured Cabling Drop", "Install", "LOWV", 1, 90, 175.0),
+    ("NET-REP", "Network Outage", "Repair", "NET", 2, 90, 260.0),
+    ("NET-INS", "Wi-Fi Access Point Install", "Install", "NET", 2, 120, 340.0),
+    ("SEC-REP", "Access Control Repair", "Repair", "SEC", 2, 90, 240.0),
+    ("SEC-INS", "Camera Install", "Install", "SEC", 2, 150, 560.0),
+    ("FIR-INSP", "Fire Alarm Inspection", "Inspection", "FIRE", 2, 120, 330.0),
+    ("FIR-EMR", "Fire Panel Trouble Emergency", "Emergency", "FIRE", 3, 120, 610.0),
+    ("PLB-REP", "Leak / Drain Repair", "Repair", "PLUMB", 2, 90, 210.0),
+    ("PLB-EMR", "Burst Pipe Emergency", "Emergency", "PLUMB", 3, 150, 590.0),
+    ("BKF-TST", "Backflow Certification Test", "Inspection", "BACKF", 2, 60, 145.0),
+    ("APL-REP", "Commercial Kitchen Equipment Repair", "Repair", "APPL", 2, 90, 230.0),
+    ("DOR-REP", "Overhead Door Repair", "Repair", "DOOR", 2, 90, 220.0),
+    ("DOR-PM", "Automatic Door Safety Inspection", "Inspection", "DOOR", 1, 60, 160.0),
+]
+
+# Tier -> priority -> (response, resolution, at-risk threshold, penalty)
+SLA = {
+    "Platinum": {"Critical": (120, 360, 45, 2500.0), "High": (240, 720, 60, 1200.0), "Medium": (480, 1440, 90, 500.0), "Low": (1440, 4320, 120, 150.0)},
+    "Gold":     {"Critical": (180, 480, 45, 1500.0), "High": (360, 1080, 60, 800.0), "Medium": (720, 2160, 90, 300.0), "Low": (2880, 7200, 120, 100.0)},
+    "Standard": {"Critical": (240, 720, 60, 750.0), "High": (480, 1440, 60, 400.0), "Medium": (1440, 2880, 120, 150.0), "Low": (4320, 10080, 180, 50.0)},
+}
+
+ASSET_TYPES = {
+    "HVAC-R": [("Split System AC", ["Carrier", "Trane", "Lennox", "Goodman"]), ("Furnace", ["Carrier", "Rheem", "Lennox"]), ("Heat Pump", ["Trane", "Daikin", "Mitsubishi"])],
+    "HVAC-C": [("Rooftop Unit", ["Trane", "Carrier", "York", "Daikin"]), ("Chiller", ["Trane", "York", "Carrier"])],
+    "REFRIG": [("Walk-in Cooler", ["Hussmann", "Kolpak", "Heatcraft"]), ("Walk-in Freezer", ["Kolpak", "Heatcraft"]), ("Ice Machine", ["Manitowoc", "Hoshizaki", "Scotsman"])],
+    "BOILER": [("Boiler", ["Weil-McLain", "Lochinvar", "Burnham"])],
+    "BMS": [("BMS Controller", ["Johnson Controls", "Honeywell", "Siemens"])],
+    "ELEC": [("Electrical Panel", ["Square D", "Eaton", "Siemens"])],
+    "GEN": [("Standby Generator", ["Generac", "Kohler", "Cummins", "Caterpillar"]), ("Transfer Switch", ["ASCO", "Generac"])],
+    "SOLAR": [("Solar Inverter", ["SolarEdge", "Enphase", "SMA"]), ("Battery Storage", ["Tesla", "LG", "Enphase"])],
+    "NET": [("Network Switch", ["Cisco", "Aruba", "Ubiquiti"]), ("Wireless AP", ["Cisco", "Aruba", "Ubiquiti"])],
+    "LOWV": [("Patch Panel", ["Panduit", "Leviton"])],
+    "SEC": [("Access Control Panel", ["HID", "Lenel", "Genetec"]), ("NVR / Camera System", ["Axis", "Hanwha", "Avigilon"])],
+    "FIRE": [("Fire Alarm Panel", ["Notifier", "Simplex", "Edwards"])],
+    "PLUMB": [("Water Heater", ["Rheem", "A.O. Smith", "Bradford White"])],
+    "BACKF": [("Backflow Preventer", ["Watts", "Zurn", "Febco"])],
+    "APPL": [("Commercial Oven", ["Vulcan", "Rational", "Blodgett"]), ("Dishwasher", ["Hobart", "Champion"])],
+    "DOOR": [("Overhead Door", ["Overhead Door", "Clopay", "Wayne Dalton"]), ("Automatic Sliding Door", ["Stanley", "Horton", "Besam"])],
+}
+
+PART_CATALOG = {
+    "HVAC": ["Capacitor 45/5 MFD", "Contactor 2-Pole 40A", "Condenser Fan Motor", "Blower Motor 1/2HP", "Igniter Hot Surface", "Flame Sensor",
+             "Pleated Filter 20x25x2", "Refrigerant R-410A (lb)", "Refrigerant R-454B (lb)", "TXV Valve", "Pressure Switch", "Thermostat Smart Wi-Fi",
+             "Belt A-48", "Condensate Pump", "Inducer Motor", "Control Board Universal", "Compressor Hard Start Kit", "Defrost Board"],
+    "Refrigeration": ["Evaporator Fan Motor", "Defrost Timer", "Door Gasket 30x78", "Solenoid Valve", "Expansion Valve R-404A", "Refrigerant R-448A (lb)", "Heater Strip Drain Line"],
+    "Electrical": ["Breaker 20A 1-Pole", "Breaker 50A 2-Pole", "GFCI Receptacle", "Wire THHN 12AWG (ft)", "Surge Protector Panel", "LED Driver", "Photocell", "Disconnect 60A"],
+    "Generator": ["Generator Battery 12V", "Oil Filter Diesel", "Air Filter Generator", "Block Heater", "Battery Charger 10A", "Spark Plug Set"],
+    "Solar": ["MC4 Connector Pair", "Inverter Fan Kit", "Rapid Shutdown Device", "Microinverter IQ8"],
+    "Network": ["Cat6 Cable (ft)", "RJ45 Keystone Jack", "PoE Injector", "SFP Module 10G", "Access Point Wi-Fi 6E", "Patch Cable 3ft"],
+    "Security": ["Card Reader Prox", "Mag Lock 1200lb", "Request-to-Exit Sensor", "Dome Camera 4MP", "Door Contact", "Power Supply 12V 4A"],
+    "Fire": ["Smoke Detector Photoelectric", "Heat Detector", "Pull Station", "Horn Strobe", "Backup Battery 12V 7Ah", "Duct Detector"],
+    "Plumbing": ["Ball Valve 3/4in", "PEX Fitting Kit", "Flush Valve Kit", "Water Heater Element", "Thermocouple", "Backflow Repair Kit 1in", "P-Trap 1.5in"],
+    "Equipment": ["Oven Thermostat", "Door Hinge Kit", "Wash Arm Assembly", "Door Spring Torsion", "Photo Eye Sensor", "Door Operator Board", "Roller Set"],
+}
+
+PRIORITY_WEIGHTS = {"Critical": 6, "High": 22, "Medium": 45, "Low": 27}
+NOTE_TEXTS_DISPATCH = ["Customer confirmed availability for window.", "Gate code provided by customer; see access notes.",
+                       "Customer requested call 30 min before arrival.", "Escalated by account manager - VIP site.",
+                       "Parts confirmed in depot stock.", "Second visit - previous fix did not hold.",
+                       "Site contact changed; updated phone number.", "Customer reports intermittent issue, mostly afternoons.",
+                       "Requires lift / ladder over 12ft.", "Building access only via loading dock."]
+NOTE_TEXTS_TECH = ["Arrived on site, beginning diagnostics.", "Replaced failed component, system tested OK.",
+                   "Waiting on customer to clear access to equipment room.", "Recommend replacement quote - unit at end of life.",
+                   "Found loose wiring at terminal block, re-terminated.", "Cleaned coils and replaced filters.",
+                   "Need second tech for lift on next visit.", "Customer signed off on work.", "Ordered part, ETA 2 business days.",
+                   "Performed full inspection, report uploaded."]
+HOLD_REASONS = ["Awaiting parts", "Customer not available", "Awaiting customer approval of quote", "Requires second technician", "Site access issue"]
+SUMMARY_PREFIX = {"Repair": ["Unit not working", "Intermittent failure", "Error code reported", "Noisy operation", "Performance degraded"],
+                  "Maintenance": ["Scheduled PM visit", "Quarterly service", "Contract maintenance"],
+                  "Install": ["New install requested", "Replacement install", "Upgrade install"],
+                  "Inspection": ["Annual inspection due", "Compliance inspection", "Certification test"],
+                  "Emergency": ["EMERGENCY - system down", "EMERGENCY - safety issue", "EMERGENCY - customer operations halted"]}
+
+
+def fmt(dt):
+    return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
+
+
+def fmt_d(d):
+    return d.strftime("%Y-%m-%d") if d else None
+
+
+def jitter(lat, lng, km):
+    dlat = (random.random() - 0.5) * 2 * km / 111.0
+    dlng = (random.random() - 0.5) * 2 * km / (111.0 * math.cos(math.radians(lat)))
+    return round(lat + dlat, 6), round(lng + dlng, 6)
+
+
+def km_between(a_lat, a_lng, b_lat, b_lng):
+    dx = (a_lng - b_lng) * 111.0 * math.cos(math.radians((a_lat + b_lat) / 2))
+    dy = (a_lat - b_lat) * 111.0
+    return math.hypot(dx, dy)
+
+
+def phone():
+    return f"({random.randint(201, 989)}) {random.randint(200, 999)}-{random.randint(1000, 9999)}"
+
+
+def weighted(d):
+    return random.choices(list(d.keys()), weights=list(d.values()))[0]
+
+
+def round_to(dt, minutes):
+    discard = timedelta(minutes=dt.minute % minutes, seconds=dt.second)
+    return dt - discard
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--anchor", help="anchor date YYYY-MM-DD (default: today)")
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "dispatch.db"))
+    ap.add_argument("--seed", type=int, default=42)
+    args = ap.parse_args()
+
+    random.seed(args.seed)
+    anchor = date.fromisoformat(args.anchor) if args.anchor else date.today()
+    sim_now = datetime.combine(anchor, SIM_NOW_TIME)
+    start_day = anchor - timedelta(days=HISTORY_DAYS)
+    end_day = anchor + timedelta(days=FUTURE_DAYS)
+
+    if os.path.exists(args.out):
+        os.remove(args.out)
+    con = sqlite3.connect(args.out)
+    schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
+    with open(schema_path) as f:
+        con.executescript(f.read())
+    cur = con.cursor()
+
+    cur.execute("INSERT INTO SeedMeta VALUES (1, ?, ?, ?)", (fmt_d(anchor), fmt(datetime.now()), GENERATOR_VERSION))
+
+    # ---------------- Regions & depots ----------------
+    depots = []  # dicts
+    for rid, (code, name, tz, lat, lng, dlist) in enumerate(REGIONS, start=1):
+        cur.execute("INSERT INTO Regions VALUES (?,?,?,?,?,?)", (rid, code, name, tz, lat, lng))
+        for (city, st, zipc, dlat, dlng) in dlist:
+            did = len(depots) + 1
+            depots.append({"id": did, "region": rid, "lat": dlat, "lng": dlng, "city": city, "state": st})
+            cur.execute("INSERT INTO Depots VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (did, rid, f"{code}-{city[:3].upper()}", f"{city} Service Center",
+                         f"{random.randint(100, 9999)} {random.choice(STREET_NAMES)} {random.choice(STREET_SUFFIX)}",
+                         city, st, zipc, dlat, dlng, phone()))
+    region_ids = list(range(1, len(REGIONS) + 1))
+    depots_by_region = {r: [d for d in depots if d["region"] == r] for r in region_ids}
+
+    # ---------------- Dispatchers (40) ----------------
+    used_emails = set()
+
+    def email_for(first, last, domain):
+        base = f"{first}.{last}".lower().replace("'", "")
+        e, n = f"{base}@{domain}", 1
+        while e in used_emails:
+            n += 1
+            e = f"{base}{n}@{domain}"
+        used_emails.add(e)
+        return e
+
+    dispatchers = []
+    shift_names = ["Early", "Day", "Day", "Late", "Night"]
+    for i in range(1, 41):
+        rid = region_ids[(i - 1) % len(region_ids)]
+        fn, ln = random.choice(FIRST_NAMES), random.choice(LAST_NAMES)
+        role = "Supervisor" if i <= 6 else ("SeniorDispatcher" if i <= 16 else "Dispatcher")
+        dispatchers.append({"id": i, "region": rid, "name": f"{fn} {ln}"})
+        cur.execute("INSERT INTO Dispatchers VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (i, f"D{1000 + i}", fn, ln, email_for(fn, ln, "dispatch.fieldops.example"), phone(), rid,
+                     "Day" if role == "Supervisor" else random.choice(shift_names), role, 1))
+    dispatchers_by_region = {r: [d for d in dispatchers if d["region"] == r] for r in region_ids}
+
+    # ---------------- Skills & job types & SLA ----------------
+    skill_id = {}
+    for sid, (code, name, cat, cert) in enumerate(SKILLS, start=1):
+        skill_id[code] = sid
+        cur.execute("INSERT INTO Skills VALUES (?,?,?,?,?)", (sid, code, name, cat, cert))
+
+    job_types = []
+    for jid, (code, name, cat, skill, minp, dur, price) in enumerate(JOB_TYPES, start=1):
+        job_types.append({"id": jid, "code": code, "name": name, "cat": cat, "skill": skill_id[skill], "skill_code": skill, "minp": minp, "dur": dur, "price": price})
+        cur.execute("INSERT INTO JobTypes VALUES (?,?,?,?,?,?,?,?)", (jid, code, name, cat, skill_id[skill], minp, dur, price))
+
+    sla_id = {}
+    sid = 0
+    for tier, pr in SLA.items():
+        for prio, (resp, reso, risk, pen) in pr.items():
+            sid += 1
+            sla_id[(tier, prio)] = sid
+            cur.execute("INSERT INTO SlaPolicies VALUES (?,?,?,?,?,?,?,?)", (sid, f"{tier} {prio}", tier, prio, resp, reso, risk, pen))
+
+    # ---------------- Parts & inventory ----------------
+    parts = []
+    pid = 0
+    for cat, names in PART_CATALOG.items():
+        for nm in names:
+            for variant in ["", " (OEM)"] if random.random() < 0.45 else [""]:
+                pid += 1
+                cost = round(random.uniform(4, 380), 2)
+                parts.append({"id": pid, "cat": cat, "price": round(cost * random.uniform(1.35, 1.9), 2)})
+                cur.execute("INSERT INTO Parts VALUES (?,?,?,?,?,?)", (pid, f"{cat[:3].upper()}-{10000 + pid}", nm + variant, cat, cost, parts[-1]["price"]))
+    inv_rows = []
+    for d in depots:
+        for p in parts:
+            inv_rows.append((d["id"], p["id"], random.randint(0, 60), random.randint(3, 12)))
+    cur.executemany("INSERT INTO DepotInventory VALUES (?,?,?,?)", inv_rows)
+    skill_to_partcat = {"HVAC-R": "HVAC", "HVAC-C": "HVAC", "REFRIG": "Refrigeration", "BOILER": "Plumbing", "BMS": "Electrical", "ELEC": "Electrical",
+                        "GEN": "Generator", "SOLAR": "Solar", "LOWV": "Network", "NET": "Network", "SEC": "Security", "FIRE": "Fire",
+                        "PLUMB": "Plumbing", "BACKF": "Plumbing", "APPL": "Equipment", "DOOR": "Equipment"}
+    parts_by_cat = {}
+    for p in parts:
+        parts_by_cat.setdefault(p["cat"], []).append(p)
+
+    # ---------------- Vehicles & technicians ----------------
+    makes = [("Ford", "Transit 250", "Van"), ("Ford", "F-250", "Pickup"), ("Mercedes-Benz", "Sprinter 2500", "Van"), ("Ram", "ProMaster 2500", "Van"),
+             ("Chevrolet", "Silverado 2500HD", "Pickup"), ("Isuzu", "NPR-HD", "BoxTruck"), ("Toyota", "Tacoma", "Pickup"), ("Ford", "Transit Connect", "Car")]
+    vehicles = []
+    vid = 0
+    for d in depots:
+        for _ in range(25):
+            vid += 1
+            mk, md, vt = random.choice(makes)
+            status = random.choices(["InService", "Maintenance", "OutOfService"], [92, 6, 2])[0]
+            vehicles.append({"id": vid, "depot": d["id"], "status": status})
+            cur.execute("INSERT INTO Vehicles VALUES (?,?,?,?,?,?,?,?,?)",
+                        (vid, d["id"], f"{d['state']}-{random.randint(100, 999)}{random.choice('ABCDEFGHJKLMNPRSTUVWXYZ')}{random.choice('ABCDEFGHJKLMNPRSTUVWXYZ')}{vid:03d}",
+                         mk, md, random.randint(2017, 2026), vt, status, random.randint(4000, 160000)))
+    vehicles_by_depot = {d["id"]: [v for v in vehicles if v["depot"] == d["id"] and v["status"] == "InService"] for d in depots}
+
+    # skill bundles: technicians tend to cluster by trade
+    trade_bundles = [
+        ["HVAC-R", "HVAC-C", "BMS"], ["HVAC-C", "REFRIG", "BOILER"], ["HVAC-R", "PLUMB"], ["REFRIG", "APPL"],
+        ["ELEC", "GEN", "SOLAR"], ["ELEC", "LOWV"], ["LOWV", "NET", "SEC"], ["SEC", "FIRE", "LOWV"],
+        ["PLUMB", "BACKF", "BOILER"], ["DOOR", "SEC"], ["FIRE", "ELEC"], ["APPL", "DOOR", "PLUMB"],
+    ]
+    levels = {"Apprentice": (1, 2, 24, 30), "TechI": (2, 3, 30, 38), "TechII": (3, 4, 36, 45), "Senior": (4, 5, 44, 55), "Lead": (4, 5, 52, 62)}
+    techs = []
+    tech_skill_rows = []
+    tid = 0
+    for d in depots:
+        n = random.randint(21, 26)
+        avail_vehicles = list(vehicles_by_depot[d["id"]])
+        random.shuffle(avail_vehicles)
+        for _ in range(n):
+            tid += 1
+            fn, ln = random.choice(FIRST_NAMES), random.choice(LAST_NAMES)
+            level = random.choices(list(levels.keys()), [12, 26, 30, 22, 10])[0]
+            pmin, pmax, rmin, rmax = levels[level]
+            emp = random.choices(["Active", "OnLeave", "Inactive"], [93, 4, 3])[0]
+            hlat, hlng = jitter(d["lat"], d["lng"], 35)
+            vehicle = avail_vehicles.pop() if avail_vehicles and emp == "Active" else None
+            shift_start_hour = random.choices([6, 7, 8, 9], [10, 45, 35, 10])[0]
+            t = {"id": tid, "depot": d["id"], "region": d["region"], "emp": emp, "level": level, "name": f"{fn} {ln}",
+                 "home": (hlat, hlng), "max": random.randint(4, 7) if level != "Apprentice" else random.randint(3, 5),
+                 "start_hour": shift_start_hour, "skills": {}, "vehicle": vehicle["id"] if vehicle else None,
+                 "weekend": random.random() < 0.3}
+            bundle = list(random.choice(trade_bundles))
+            if random.random() < 0.35:
+                bundle.append(random.choice([s[0] for s in SKILLS]))
+            for sc in set(bundle):
+                prof = random.randint(pmin, pmax)
+                t["skills"][skill_id[sc]] = prof
+                cert_until = None
+                if [s for s in SKILLS if s[0] == sc][0][3]:
+                    cert_until = fmt_d(anchor + timedelta(days=random.randint(-20, 900)))
+                tech_skill_rows.append((tid, skill_id[sc], prof, cert_until))
+            techs.append(t)
+            cur.execute("INSERT INTO Technicians VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (tid, f"T{20000 + tid}", fn, ln, email_for(fn, ln, "techs.fieldops.example"), phone(), d["id"], t["vehicle"],
+                         level, emp, "Offline", fmt_d(anchor - timedelta(days=random.randint(60, 4500))),
+                         round(random.uniform(rmin, rmax), 2), t["max"], round(random.uniform(3.6, 5.0), 1),
+                         hlat, hlng, None, None, None))
+    cur.executemany("INSERT INTO TechnicianSkills VALUES (?,?,?,?)", tech_skill_rows)
+    tech_by_id = {t["id"]: t for t in techs}
+
+    # ---------------- Time off ----------------
+    timeoff_rows = []
+    off_days = {}  # (tech, date) -> True for approved
+    toid = 0
+    for t in techs:
+        if t["emp"] == "Inactive":
+            continue
+        for _ in range(random.randint(0, 4)):
+            toid += 1
+            s = start_day + timedelta(days=random.randint(0, HISTORY_DAYS + FUTURE_DAYS + 30))
+            length = random.choice([1, 1, 1, 2, 3, 5])
+            e = s + timedelta(days=length - 1)
+            typ = random.choices(["Vacation", "Sick", "Training", "Personal"], [45, 25, 15, 15])[0]
+            if s > anchor:
+                status = random.choices(["Approved", "Pending", "Denied"], [60, 32, 8])[0]
+            else:
+                status = random.choices(["Approved", "Denied"], [92, 8])[0]
+            if typ == "Sick" and s > anchor:
+                typ = "Personal"
+            timeoff_rows.append((toid, t["id"], fmt_d(s), fmt_d(e), typ, status,
+                                 {"Vacation": "Family trip", "Sick": "Illness", "Training": "Manufacturer certification course", "Personal": "Personal appointment"}[typ],
+                                 fmt(datetime.combine(s, time(9)) - timedelta(days=random.randint(1, 40)))))
+            if status == "Approved":
+                dd = s
+                while dd <= e:
+                    off_days[(t["id"], dd)] = True
+                    dd += timedelta(days=1)
+        if t["emp"] == "OnLeave":
+            toid += 1
+            s = anchor - timedelta(days=random.randint(3, 20))
+            e = anchor + timedelta(days=random.randint(10, 40))
+            timeoff_rows.append((toid, t["id"], fmt_d(s), fmt_d(e), "Personal", "Approved", "Extended leave", fmt(datetime.combine(s, time(9)) - timedelta(days=10))))
+            dd = s
+            while dd <= e:
+                off_days[(t["id"], dd)] = True
+                dd += timedelta(days=1)
+    cur.executemany("INSERT INTO TimeOffRequests VALUES (?,?,?,?,?,?,?,?)", timeoff_rows)
+
+    # ---------------- Customers, sites, assets ----------------
+    customers, sites, assets = [], [], []
+    cust_rows, site_rows, asset_rows = [], [], []
+    site_by_region = {r: [] for r in region_ids}
+    assets_by_site = {}
+    access_notes = [None, None, None, "Check in at front desk", "Loading dock at rear, ring bell", "Key in lockbox, code on file",
+                    "Escort required in server room", "Dog on premises", "Park in visitor spaces only", "Roof access via interior hatch, 3rd floor"]
+    for cid in range(1, 3601):
+        ctype = random.choices(["Residential", "Commercial", "Enterprise", "Government"], [50, 34, 11, 5])[0]
+        if ctype == "Residential":
+            tier = random.choices(["Standard", "Gold", "Platinum"], [80, 17, 3])[0]
+            fn, ln = random.choice(FIRST_NAMES), random.choice(LAST_NAMES)
+            name, contact = f"{fn} {ln}", f"{fn} {ln}"
+            nsites = 1
+        else:
+            if ctype == "Government":
+                name = f"{random.choice(['City of', 'County of', 'State Dept. of', 'Public Schools of'])} {random.choice(depots)['city']}"
+            else:
+                name = f"{random.choice(COMPANY_A)} {random.choice(COMPANY_B)}"
+            contact = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+            tier = {"Commercial": random.choices(["Standard", "Gold", "Platinum"], [55, 35, 10])[0],
+                    "Enterprise": random.choices(["Gold", "Platinum"], [45, 55])[0],
+                    "Government": random.choices(["Standard", "Gold", "Platinum"], [30, 50, 20])[0]}[ctype]
+            nsites = {"Commercial": random.randint(1, 3), "Enterprise": random.randint(3, 14), "Government": random.randint(2, 6)}[ctype]
+        home_region = random.choice(region_ids)
+        email_dom = name.lower().replace(" ", "").replace(".", "")[:18] + ".example.com"
+        customers.append({"id": cid, "tier": tier, "type": ctype})
+        cust_rows.append((cid, f"AC-{100000 + cid}", name, ctype, tier, contact, phone(),
+                          f"{contact.split()[0].lower()}@{email_dom}", fmt(datetime.combine(anchor, time(10)) - timedelta(days=random.randint(130, 3650))), 1))
+        for s_i in range(nsites):
+            rid = home_region if (ctype != "Enterprise" or random.random() < 0.4) else random.choice(region_ids)
+            dep = random.choice(depots_by_region[rid])
+            lat, lng = jitter(dep["lat"], dep["lng"], 40)
+            sid = len(sites) + 1
+            sname = "Residence" if ctype == "Residential" else f"{name} - {random.choice(['Main', 'North', 'South', 'East', 'West', 'Downtown', 'Campus', 'Warehouse', 'Store #' + str(random.randint(10, 999))])}"
+            site = {"id": sid, "customer": cid, "region": rid, "lat": lat, "lng": lng, "tier": tier}
+            sites.append(site)
+            site_by_region[rid].append(site)
+            site_rows.append((sid, cid, rid, sname, f"{random.randint(10, 9999)} {random.choice(STREET_NAMES)} {random.choice(STREET_SUFFIX)}",
+                              dep["city"], dep["state"], f"{random.randint(10000, 99999)}", lat, lng, random.choice(access_notes), phone()))
+            # assets
+            nassets = random.randint(1, 2) if ctype == "Residential" else random.randint(2, 5)
+            assets_by_site[sid] = []
+            for _ in range(nassets):
+                aid = len(assets) + 1
+                skill_code = random.choice(["HVAC-R", "PLUMB", "ELEC", "SOLAR", "GEN", "SEC"] if ctype == "Residential" else list(ASSET_TYPES.keys()))
+                atype, mfrs = random.choice(ASSET_TYPES[skill_code])
+                inst = anchor - timedelta(days=random.randint(60, 5000))
+                warranty = inst + timedelta(days=random.choice([365, 730, 1825, 3650]))
+                status = random.choices(["Operational", "Degraded", "Down", "Retired"], [84, 9, 4, 3])[0]
+                assets.append({"id": aid, "site": sid, "skill": skill_id[skill_code]})
+                assets_by_site[sid].append(assets[-1])
+                mfr = random.choice(mfrs)
+                asset_rows.append((aid, sid, f"AT-{300000 + aid}", atype, mfr, f"{mfr[:3].upper()}-{random.randint(100, 9999)}{random.choice('ABCDXZ')}",
+                                   f"SN{random.randint(10000000, 99999999)}", fmt_d(inst), fmt_d(warranty), status))
+    cur.executemany("INSERT INTO Customers VALUES (?,?,?,?,?,?,?,?,?,?)", cust_rows)
+    cur.executemany("INSERT INTO Sites VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", site_rows)
+    cur.executemany("INSERT INTO Assets VALUES (?,?,?,?,?,?,?,?,?,?)", asset_rows)
+    # Weight sites so business customers generate more work
+    site_weight = {s["id"]: (1 if customers[s["customer"] - 1]["type"] == "Residential" else 3) for s in sites}
+    job_types_by_skill = {}
+    for jt in job_types:
+        job_types_by_skill.setdefault(jt["skill"], []).append(jt)
+
+    # ---------------- Shifts ----------------
+    shift_rows = []
+    on_shift = {}  # (date) -> list of (tech, start_dt, end_dt)
+    shift_id = 0
+    d = start_day
+    while d <= end_day:
+        weekday = d.weekday()
+        on_shift[d] = []
+        for t in techs:
+            if t["emp"] == "Inactive":
+                continue
+            if weekday >= 5 and not (t["weekend"] and random.random() < 0.35):
+                continue
+            if weekday < 5 and random.random() < 0.06:  # rostered day off
+                continue
+            st = datetime.combine(d, time(t["start_hour"], 0))
+            en = st + timedelta(hours=8, minutes=30)
+            stype = "OnCall" if weekday >= 5 else ("Overtime" if random.random() < 0.04 else "Regular")
+            if stype == "Overtime":
+                en += timedelta(hours=2)
+            shift_id += 1
+            if (t["id"], d) in off_days:
+                shift_rows.append((shift_id, t["id"], fmt_d(d), st.strftime("%H:%M:%S"), en.strftime("%H:%M:%S"), stype, "Cancelled", "Approved time off"))
+                continue
+            if d < anchor:
+                status = "Absent" if random.random() < 0.015 else "Completed"
+            elif d == anchor:
+                status = "Absent" if random.random() < 0.02 else "InProgress"
+            else:
+                status = "Scheduled"
+            shift_rows.append((shift_id, t["id"], fmt_d(d), st.strftime("%H:%M:%S"), en.strftime("%H:%M:%S"), stype, status,
+                               "Called out" if status == "Absent" else None))
+            if status != "Absent":
+                on_shift[d].append((t, st, en))
+        d += timedelta(days=1)
+    cur.executemany("INSERT INTO Shifts VALUES (?,?,?,?,?,?,?,?)", shift_rows)
+
+    # ---------------- Jobs ----------------
+    job_rows, event_rows, note_rows, part_rows, resched_rows = [], [], [], [], []
+    job_id = 0
+    tech_today_state = {}  # tech id -> ('OnSite'|'EnRoute', site)
+
+    def add_event(jid, etype, at, frm=None, to=None, tech=None, disp=None, details=None):
+        event_rows.append((len(event_rows) + 1, jid, etype, frm, to, tech, disp, fmt(at), details))
+
+    d = start_day
+    while d <= end_day:
+        is_weekend = d.weekday() >= 5
+        days_ahead = (d - anchor).days
+        for rid in region_ids:
+            roster = [x for x in on_shift[d] if x[0]["region"] == rid]
+            if not roster and not is_weekend:
+                continue
+            base = len(roster) * (random.uniform(1.6, 2.4) if is_weekend else random.uniform(2.6, 3.3))
+            if days_ahead == 0:
+                base *= 1.05
+            elif days_ahead > 0:
+                base *= max(0.18, 0.92 - days_ahead * 0.055)
+            n_jobs = int(base)
+            # timeline state per tech
+            tl = {t["id"]: {"cursor": st, "end": en, "count": 0, "loc": (tech_by_id[t["id"]]["home"])} for (t, st, en) in roster}
+            roster_by_skill = {}
+            for (t, st, en) in roster:
+                for sk, prof in t["skills"].items():
+                    roster_by_skill.setdefault(sk, []).append((t, prof))
+
+            region_sites = site_by_region[rid]
+            weights = [site_weight[s["id"]] for s in region_sites]
+            pending = []
+            for _ in range(n_jobs):
+                site = random.choices(region_sites, weights)[0]
+                cust = customers[site["customer"] - 1]
+                prio = weighted(PRIORITY_WEIGHTS) if not is_weekend else random.choices(["Critical", "High", "Medium"], [35, 50, 15])[0]
+                site_assets = assets_by_site[site["id"]]
+                asset = random.choice(site_assets) if site_assets and random.random() < 0.8 else None
+                if asset and asset["skill"] in job_types_by_skill:
+                    cands = job_types_by_skill[asset["skill"]]
+                else:
+                    cands = job_types
+                if prio == "Critical":
+                    em = [j for j in cands if j["cat"] == "Emergency"] or [j for j in cands if j["cat"] == "Repair"] or cands
+                    jt = random.choice(em)
+                elif prio in ("High",):
+                    jt = random.choice([j for j in cands if j["cat"] in ("Repair", "Emergency")] or cands)
+                else:
+                    jt = random.choice([j for j in cands if j["cat"] not in ("Emergency",)] or cands)
+                resp, reso, risk, pen = SLA[cust["tier"]][prio]
+                if prio in ("Critical", "High"):
+                    # reactive: created on the day (or previous evening), window begins shortly after
+                    created = datetime.combine(d, time(6, 0)) + timedelta(minutes=random.randint(-300, 600))
+                    if days_ahead == 0 and created > sim_now:
+                        created = sim_now - timedelta(minutes=random.randint(5, 240))
+                    if days_ahead > 0:
+                        # future reactive jobs only exist as booked follow-ups
+                        created = sim_now - timedelta(hours=random.randint(1, 30))
+                        wstart = round_to(datetime.combine(d, time(random.randint(8, 14), 0)), 30)
+                        wend = wstart + timedelta(hours=2)
+                        response_due = wend
+                    else:
+                        wstart = round_to(created + timedelta(minutes=random.randint(20, 60)), 15)
+                        wstart = max(wstart, datetime.combine(d, time(7, 0)))
+                        response_due = created + timedelta(minutes=resp)
+                        wend = max(wstart + timedelta(minutes=60), response_due)
+                else:
+                    wstart_hour = random.choice([8, 8, 9, 10, 11, 12, 13, 14, 15])
+                    wstart = datetime.combine(d, time(wstart_hour, 0))
+                    wend = wstart + timedelta(hours=random.choice([2, 2, 3, 4]))
+                    created = datetime.combine(d, time(random.randint(8, 17), random.randint(0, 59))) - timedelta(days=random.randint(1, 12))
+                    if created > sim_now:
+                        created = sim_now - timedelta(hours=random.randint(1, 48))
+                    response_due = wend
+                resolution_due = response_due + timedelta(minutes=reso - resp)
+                dur = int(jt["dur"] * random.uniform(0.8, 1.25) // 15 * 15) or 30
+                pending.append({"site": site, "cust": cust, "prio": prio, "jt": jt, "asset": asset, "created": created,
+                                "wstart": wstart, "wend": wend, "resp_due": response_due, "res_due": resolution_due, "dur": dur})
+            pending.sort(key=lambda j: (j["wstart"], {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}[j["prio"]]))
+
+            # probability a job ends up assigned (future bookings are partially planned)
+            if days_ahead < 0:
+                assign_p = 0.995
+            elif days_ahead == 0:
+                assign_p = 0.9
+            else:
+                assign_p = max(0.35, 0.85 - (days_ahead - 1) * 0.04)
+
+            for j in pending:
+                job_id += 1
+                jt, site = j["jt"], j["site"]
+                tech, sched_start = None, None
+                if random.random() < assign_p:
+                    cands = [(t, p) for (t, p) in roster_by_skill.get(jt["skill"], []) if p >= jt["minp"]]
+                    random.shuffle(cands)
+                    best = None
+                    for (t, p) in cands[:25]:
+                        s = tl[t["id"]]
+                        if s["count"] >= t["max"]:
+                            continue
+                        travel = int(km_between(s["loc"][0], s["loc"][1], site["lat"], site["lng"]) / 0.75) + 10  # ~45km/h
+                        start = max(j["wstart"], s["cursor"] + timedelta(minutes=travel))
+                        start = round_to(start + timedelta(minutes=14), 15)
+                        if start + timedelta(minutes=j["dur"]) > s["end"] + timedelta(minutes=60):
+                            continue
+                        late = (start - j["wend"]).total_seconds() / 60
+                        if late > (120 if days_ahead >= 0 else 60):
+                            continue
+                        score = late * 3 + (start - j["wstart"]).total_seconds() / 60 - p * 10
+                        if best is None or score < best[0]:
+                            best = (score, t, start)
+                    if best:
+                        _, tech, sched_start = best
+                        s = tl[tech["id"]]
+                        s["cursor"] = sched_start + timedelta(minutes=j["dur"])
+                        s["count"] += 1
+                        s["loc"] = (site["lat"], site["lng"])
+                if tech is None and days_ahead <= 0:
+                    # unplaceable demand: in history most never materialised; today keep a realistic backlog
+                    keep = 0.12 if days_ahead < 0 else 0.4
+                    if random.random() > keep:
+                        job_id -= 1
+                        continue
+                sched_end = sched_start + timedelta(minutes=j["dur"]) if sched_start else None
+                disp = random.choice(dispatchers_by_region[rid])["id"]
+                created = j["created"]
+                assigned_at = None
+                if tech:
+                    assigned_at = min(created + timedelta(minutes=random.randint(3, 180)), sched_start - timedelta(minutes=10))
+                    assigned_at = max(assigned_at, created + timedelta(minutes=1))
+                    if days_ahead >= 0 and assigned_at > sim_now:
+                        assigned_at = sim_now - timedelta(minutes=random.randint(1, 30))
+                        assigned_at = max(assigned_at, created + timedelta(minutes=1))
+
+                status, actual_start, actual_end, ftf, rating, hold, comp_notes = "Unassigned", None, None, None, None, None, None
+                if days_ahead < 0:
+                    if tech is None:
+                        status = "Cancelled"
+                    else:
+                        r = random.random()
+                        if r < 0.045:
+                            status = "Cancelled"
+                        elif r < 0.052 and days_ahead > -10:
+                            status = "OnHold"
+                            hold = random.choice(HOLD_REASONS)
+                            actual_start = sched_start + timedelta(minutes=random.randint(-10, 40))
+                        else:
+                            status = "Completed"
+                            late_bias = random.random()
+                            delay = random.randint(-15, 25) if late_bias < 0.94 else random.randint(30, 200)
+                            actual_start = sched_start + timedelta(minutes=delay)
+                            actual_end = actual_start + timedelta(minutes=int(j["dur"] * random.uniform(0.7, 1.6)))
+                            ftf = 1 if random.random() < 0.86 else 0
+                            rating = random.choices([5, 4, 3, 2, 1], [55, 28, 10, 4, 3])[0] if random.random() < 0.6 else None
+                            comp_notes = random.choice(NOTE_TEXTS_TECH)
+                elif days_ahead == 0:
+                    if tech is None:
+                        status = "Unassigned"
+                    else:
+                        ts = tech["id"]
+                        if sched_end <= sim_now - timedelta(minutes=10):
+                            r = random.random()
+                            if r < 0.88:
+                                status = "Completed"
+                                actual_start = sched_start + timedelta(minutes=random.randint(-10, 30))
+                                actual_end = min(actual_start + timedelta(minutes=int(j["dur"] * random.uniform(0.7, 1.3))), sim_now - timedelta(minutes=2))
+                                ftf = 1 if random.random() < 0.85 else 0
+                                comp_notes = random.choice(NOTE_TEXTS_TECH)
+                            elif r < 0.94:
+                                status = "OnSite"  # overrunning
+                                actual_start = sched_start + timedelta(minutes=random.randint(0, 40))
+                            else:
+                                status = "OnHold"
+                                hold = random.choice(HOLD_REASONS)
+                                actual_start = sched_start + timedelta(minutes=random.randint(0, 20))
+                        elif sched_start <= sim_now:
+                            if random.random() < 0.8:
+                                status = "OnSite"
+                                actual_start = sched_start + timedelta(minutes=random.randint(0, 25))
+                                if actual_start > sim_now:
+                                    actual_start = sim_now - timedelta(minutes=3)
+                            else:
+                                status = "EnRoute"  # running late
+                        elif sched_start <= sim_now + timedelta(minutes=60):
+                            status = random.choice(["Dispatched", "EnRoute"])
+                        else:
+                            status = "Assigned"
+                        # a technician can only be on site / en route at one job
+                        if status in ("OnSite", "EnRoute"):
+                            if ts in tech_today_state:
+                                status = "Assigned" if sched_start > sim_now else "Dispatched"
+                                actual_start = None if status != "OnSite" else actual_start
+                            else:
+                                tech_today_state[ts] = (status, site)
+                else:
+                    status = "Assigned" if tech else "Unassigned"
+
+                job_number = f"WO-{d.strftime('%y%m%d')}-{job_id:06d}"
+                desc = f"{random.choice(SUMMARY_PREFIX[jt['cat']])}. {jt['name']} at {('customer residence' if j['cust']['type'] == 'Residential' else 'customer facility')}."
+                source = random.choices(["Phone", "Portal", "Email", "IoTAlert", "Contract"], [35, 30, 10, 10, 15])[0]
+                if jt["cat"] in ("Maintenance", "Inspection"):
+                    source = "Contract"
+                last_update = max(x for x in [created, assigned_at, actual_start, actual_end] if x)
+                if days_ahead == 0 and status in ("Dispatched", "EnRoute"):
+                    last_update = min(sim_now, max(last_update, sched_start - timedelta(minutes=60)))
+                reschedule_count = 0
+
+                # reschedule history (job moved from an earlier slot / other tech)
+                if tech and random.random() < 0.08:
+                    reschedule_count = random.choice([1, 1, 1, 2])
+                    for k in range(reschedule_count):
+                        from_tech = random.choice([tech["id"], random.choice(techs)["id"]])
+                        from_start = sched_start - timedelta(days=random.randint(1, 4), hours=random.randint(-2, 2))
+                        r_at = max(created + timedelta(minutes=5), min(from_start, sched_start) - timedelta(hours=random.randint(2, 20)))
+                        if r_at > sim_now:
+                            r_at = sim_now - timedelta(minutes=random.randint(30, 4320))
+                            r_at = max(r_at, created + timedelta(minutes=5))
+                        reason = random.choices(["CustomerRequest", "TechnicianUnavailable", "PartsDelay", "Overrun", "Weather", "SlaRebalance", "Other"],
+                                                [35, 22, 14, 12, 5, 8, 4])[0]
+                        resched_rows.append((len(resched_rows) + 1, job_id, from_tech, tech["id"], fmt(from_start), fmt(sched_start), reason,
+                                             None if random.random() < 0.5 else "Moved per " + {"CustomerRequest": "customer call", "TechnicianUnavailable": "tech availability",
+                                                                                                "PartsDelay": "parts ETA", "Overrun": "previous job overrun", "Weather": "weather advisory",
+                                                                                                "SlaRebalance": "SLA rebalancing", "Other": "dispatcher decision"}[reason],
+                                             disp, fmt(r_at)))
+                        add_event(job_id, "Rescheduled", r_at, tech=tech["id"], disp=disp, details=f"{fmt(from_start)} -> {fmt(sched_start)} ({reason})")
+
+                job_rows.append((job_id, job_number, j["cust"]["id"], site["id"], j["asset"]["id"] if j["asset"] else None, jt["id"], rid,
+                                 sla_id[(j["cust"]["tier"], j["prio"])], j["prio"], status, source,
+                                 f"{jt['name']}" + (f" - {j['cust']['tier']} account" if j["cust"]["tier"] == "Platinum" else ""), desc,
+                                 fmt(created), fmt(j["wstart"]), fmt(j["wend"]), fmt(sched_start), fmt(sched_end), j["dur"],
+                                 fmt(j["resp_due"]), fmt(j["res_due"]), tech["id"] if tech else None, disp if tech else None, fmt(assigned_at),
+                                 fmt(actual_start), fmt(actual_end), hold, comp_notes, ftf, rating, reschedule_count, fmt(last_update)))
+
+                # events
+                add_event(job_id, "Created", created, to="Unassigned", details=f"Created via {source}")
+                if tech:
+                    add_event(job_id, "Assigned", assigned_at, "Unassigned", "Assigned", tech["id"], disp, f"Assigned to {tech['name']}")
+                    flow = []
+                    if status in ("Dispatched", "EnRoute", "OnSite", "OnHold", "Completed"):
+                        flow.append(("Assigned", "Dispatched", (sched_start - timedelta(minutes=random.randint(45, 90)))))
+                    if status in ("EnRoute", "OnSite", "OnHold", "Completed"):
+                        flow.append(("Dispatched", "EnRoute", (actual_start or sched_start) - timedelta(minutes=random.randint(15, 40))))
+                    if actual_start:
+                        flow.append(("EnRoute", "OnSite", actual_start))
+                    if status == "OnHold":
+                        flow.append(("OnSite", "OnHold", actual_start + timedelta(minutes=random.randint(20, 60))))
+                    if status == "Completed":
+                        flow.append(("OnSite", "Completed", actual_end))
+                    for (a, b, at) in flow:
+                        at = max(at, assigned_at)
+                        if days_ahead >= 0:
+                            at = min(at, sim_now)
+                        add_event(job_id, "StatusChanged", at, a, b, tech["id"], disp if b in ("Dispatched",) else None)
+                    if status == "Cancelled":
+                        add_event(job_id, "StatusChanged", sched_start - timedelta(hours=random.randint(1, 20)), "Assigned", "Cancelled", None, disp, "Customer cancelled")
+                    if actual_start and actual_start > j["resp_due"]:
+                        add_event(job_id, "SlaBreached", j["resp_due"], details="Response SLA breached")
+                elif status == "Cancelled":
+                    add_event(job_id, "StatusChanged", created + timedelta(hours=random.randint(1, 6)), "Unassigned", "Cancelled", None, disp, "Duplicate request")
+                if days_ahead <= 0 and status not in ("Completed", "Cancelled") and j["res_due"] < sim_now:
+                    add_event(job_id, "SlaBreached", j["res_due"], details="Resolution SLA breached")
+
+                # notes
+                if random.random() < 0.45:
+                    for _ in range(random.randint(1, 3)):
+                        when = created + timedelta(minutes=random.randint(5, 400))
+                        if when > sim_now:
+                            when = sim_now - timedelta(minutes=random.randint(1, 60))
+                        if tech and actual_start and random.random() < 0.5:
+                            note_rows.append((len(note_rows) + 1, job_id, "Technician", tech["name"], random.choice(NOTE_TEXTS_TECH), 0, fmt(max(actual_start, when) if actual_start <= sim_now else when)))
+                        else:
+                            dname = dispatchers[disp - 1]["name"]
+                            note_rows.append((len(note_rows) + 1, job_id, "Dispatcher", dname, random.choice(NOTE_TEXTS_DISPATCH), 1, fmt(when)))
+                if hold:
+                    note_rows.append((len(note_rows) + 1, job_id, "Technician", tech["name"], f"Placed on hold: {hold}.", 0,
+                                      fmt(min(actual_start + timedelta(minutes=30), sim_now))))
+
+                # parts
+                if status == "Completed" and jt["cat"] in ("Repair", "Emergency", "Install", "Maintenance") and random.random() < 0.55:
+                    pool = parts_by_cat.get(skill_to_partcat[jt["skill_code"]], parts)
+                    for p in random.sample(pool, k=min(len(pool), random.randint(1, 3))):
+                        part_rows.append((len(part_rows) + 1, job_id, p["id"], random.randint(1, 4), p["price"], fmt(actual_end)))
+                    add_event(job_id, "PartsUsed", actual_end, tech=tech["id"], details="Parts recorded on job")
+        d += timedelta(days=1)
+
+    cur.executemany("INSERT INTO Jobs VALUES (" + ",".join(["?"] * 32) + ")", job_rows)
+    cur.executemany("INSERT INTO JobEvents VALUES (?,?,?,?,?,?,?,?,?)", event_rows)
+    cur.executemany("INSERT INTO JobNotes VALUES (?,?,?,?,?,?,?)", note_rows)
+    cur.executemany("INSERT INTO JobParts VALUES (?,?,?,?,?,?)", part_rows)
+    cur.executemany("INSERT INTO Reschedules VALUES (?,?,?,?,?,?,?,?,?,?)", resched_rows)
+
+    # ---------------- Technician live field status at sim-now ----------------
+    today_roster = {t["id"]: (st, en) for (t, st, en) in on_shift[anchor]}
+    for t in techs:
+        if t["id"] in tech_today_state:
+            state, site = tech_today_state[t["id"]]
+            if state == "OnSite":
+                lat, lng = site["lat"], site["lng"]
+            else:
+                lat, lng = jitter(site["lat"], site["lng"], 8)
+            fs = state
+        elif t["id"] in today_roster:
+            fs = "OnBreak" if random.random() < 0.08 else "Available"
+            dep = depots[t["depot"] - 1]
+            lat, lng = jitter(dep["lat"], dep["lng"], 20)
+        else:
+            cur.execute("UPDATE Technicians SET FieldStatus='Offline' WHERE Id=?", (t["id"],))
+            continue
+        cur.execute("UPDATE Technicians SET FieldStatus=?, CurrentLatitude=?, CurrentLongitude=?, LastLocationAt=? WHERE Id=?",
+                    (fs, lat, lng, fmt(sim_now - timedelta(minutes=random.randint(0, 9))), t["id"]))
+
+    con.commit()
+    con.execute("ANALYZE")
+    con.commit()
+
+    counts = {tbl: con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0] for tbl in
+              ["Regions", "Depots", "Dispatchers", "Skills", "Vehicles", "Technicians", "TechnicianSkills", "Shifts", "TimeOffRequests",
+               "Customers", "Sites", "Assets", "SlaPolicies", "JobTypes", "Parts", "DepotInventory", "Jobs", "JobEvents", "JobNotes",
+               "JobParts", "Reschedules"]}
+    con.execute("VACUUM")
+    con.close()
+    print(f"Generated {args.out} (anchor {anchor}, simulated now {sim_now})")
+    for k, v in counts.items():
+        print(f"  {k:<18}{v:>9,}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,17 @@
+@* Registers the Lucide icon set into the Ignite UI icon registry once, from the shell. *@
+<IgbIcon @ref="probe" IconName="home" Collection="@Icons.Collection" class="icon-registrar" aria-hidden="true" />
+
+@code {
+    private IgbIcon? probe;
+
+    [Parameter] public EventCallback Registered { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || probe is null) return;
+        await probe.EnsureReady();
+        foreach (var name in Icons.Names)
+            await probe.RegisterIconFromTextAsync(name, Icons.Svg(name), Icons.Collection);
+        await Registered.InvokeAsync();
+    }
+}

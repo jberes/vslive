@@ -1,0 +1,127 @@
+@host = http://localhost:5080
+
+### API catalog
+GET {{host}}/api
+
+### Home dashboard KPIs
+GET {{host}}/api/dashboard/summary
+
+### Customers grid: search, sort, filter, page
+GET {{host}}/api/customers?search=market&sort=-totalSales&filter=country:in:USA|Canada&page=1&pageSize=25
+
+### Customer dashboard
+GET {{host}}/api/customers/1/dashboard
+
+### Create customer (code is generated when omitted)
+POST {{host}}/api/customers
+Content-Type: application/json
+
+{
+  "companyName": "Contoso Fine Foods",
+  "contactName": "Ana Trujillo",
+  "contactTitle": "Owner",
+  "city": "Seattle",
+  "country": "USA"
+}
+
+### Overdue orders
+GET {{host}}/api/orders?filter=status:eq:Overdue&sort=requiredDate
+
+### Create order with lines (stock is allocated)
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "employeeId": 1,
+  "shipViaId": 2,
+  "freight": 18.5,
+  "details": [
+    { "productId": 1, "quantity": 10, "discount": 0.05 },
+    { "productId": 43, "quantity": 4 }
+  ]
+}
+
+### Ship an order (pick a pending one: GET /api/orders?filter=status:eq:Pending)
+POST {{host}}/api/orders/15149/ship
+Content-Type: application/json
+
+{}
+
+### Order dashboard
+GET {{host}}/api/orders/10248/dashboard
+
+### Reports
+GET {{host}}/api/reports/quarterly-orders?sort=-total&pageSize=10
+###
+GET {{host}}/api/reports/sales-by-category
+###
+GET {{host}}/api/reports/sales-by-year
+
+### Gantt for a project (task ids are global, not per project: read them from here)
+GET {{host}}/api/projects/1/gantt
+
+### Insert a task below task 43
+POST {{host}}/api/projects/1/tasks
+Content-Type: application/json
+
+{
+  "name": "Review with stakeholders",
+  "afterTaskId": 43,
+  "durationDays": 2,
+  "assignments": [ { "resourceId": 1, "units": 100 } ]
+}
+
+### Ribbon: indent / outdent / move / % complete
+POST {{host}}/api/tasks/44/indent
+###
+POST {{host}}/api/tasks/44/outdent
+###
+POST {{host}}/api/tasks/44/move
+Content-Type: application/json
+
+{ "direction": "up" }
+###
+PATCH {{host}}/api/tasks/44/progress
+Content-Type: application/json
+
+{ "percentComplete": 50 }
+
+### Font formatting
+PUT {{host}}/api/tasks/44/format
+Content-Type: application/json
+
+{ "isBold": true, "foregroundColor": "#C62828" }
+
+### Add a dependency (start-to-start, 1 day lag)
+POST {{host}}/api/projects/1/dependencies
+Content-Type: application/json
+
+{ "predecessorId": 42, "successorId": 47, "type": "StartToStart", "lagDays": 1 }
+
+### Resource workload
+GET {{host}}/api/resources/1/workload
+
+### Marketing dashboard
+GET {{host}}/api/marketing/dashboard
+
+### Leads in the pipeline
+GET {{host}}/api/leads?filter=status:in:Qualified|Proposal&sort=-estimatedValue
+
+### Convert a lead to a customer
+POST {{host}}/api/leads/1/convert
+
+### Log a lead activity
+POST {{host}}/api/leads/1/activities
+Content-Type: application/json
+
+{ "type": "Call", "subject": "Discovery call", "notes": "Interested in seafood range." }
+
+### Global search
+GET {{host}}/api/search?q=chai
+
+### Avatar image
+GET {{host}}/api/avatars/customers/1.svg
+
+### Regenerate the database
+POST {{host}}/api/admin/reset-database

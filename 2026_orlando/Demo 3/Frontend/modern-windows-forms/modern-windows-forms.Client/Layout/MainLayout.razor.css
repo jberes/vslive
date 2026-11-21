@@ -1,0 +1,113 @@
+/* ---------- Shell ---------- */
+.app-shell { display: flex; min-height: 100vh; background: var(--color-bg-secondary); }
+.app-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.app-content { flex: 1 1 auto; min-width: 0; }
+
+
+/* ---------- Sidebar (IgbNavDrawer, Relative) ---------- */
+::deep igc-nav-drawer.app-nav {
+    --menu-full-width: var(--app-nav-width);
+    --menu-mini-width: 64px;
+    --ig-nav-drawer-background: var(--color-bg-primary);
+    --ig-nav-drawer-item-text-color: var(--color-text-secondary);
+    --ig-nav-drawer-item-icon-color: var(--color-text-secondary);
+    --ig-nav-drawer-item-hover-background: var(--color-hover-bg);
+    --ig-nav-drawer-item-hover-text-color: var(--color-text-primary);
+    --ig-nav-drawer-item-hover-icon-color: var(--color-text-primary);
+    --ig-nav-drawer-item-active-background: var(--color-selected-bg);
+    --ig-nav-drawer-item-active-text-color: var(--color-brand-blue-700);
+    --ig-nav-drawer-item-active-icon-color: var(--color-brand-blue-700);
+    --ig-nav-drawer-item-header-text-color: var(--color-text-tertiary);
+    --ig-nav-drawer-border-color: var(--color-border-default);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex: none;
+    border-right: 1px solid var(--color-border-default);
+    background: var(--color-bg-primary);
+}
+::deep igc-nav-drawer.app-nav::part(main) { padding: 16px 12px 20px; gap: 2px; display: flex; flex-direction: column; box-sizing: border-box; }
+::deep igc-nav-drawer.app-nav::part(mini) { padding: 16px 8px; gap: 4px; }
+::deep igc-nav-drawer.app-nav[open]::part(mini) { display: none; }
+
+::deep igc-nav-drawer-item.nav-item::part(base) { height: 38px; padding: 0 10px; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; gap: 10px; }
+::deep igc-nav-drawer-item.nav-item--on::part(base) { font-weight: 600; box-shadow: inset 3px 0 0 var(--color-brand-blue); }
+::deep igc-nav-drawer-item.nav-item igc-icon { --size: 18px; width: 18px; height: 18px; }
+
+::deep igc-nav-drawer-header-item.nav-group {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--color-text-tertiary); padding: 14px 10px 6px;
+}
+::deep igc-nav-drawer-header-item.nav-group--proto { border-top: 1px solid var(--color-border-default); margin-top: 12px; padding-top: 14px; }
+.nav-spacer { flex: 1 1 auto; }
+
+.nav-label { display: flex; align-items: center; gap: 8px; width: 100%; }
+.nav-label > span:first-child { flex: 1; }
+::deep igc-badge.nav-badge { --ig-badge-background-color: var(--color-bg-tertiary); --ig-badge-icon-color: var(--color-text-secondary); }
+::deep igc-badge.nav-badge::part(base) { background: var(--color-bg-tertiary); color: var(--color-text-secondary); font-size: 12px; font-weight: 600; line-height: 18px; padding: 0 7px; min-width: 0; border-radius: var(--radius-full); }
+::deep igc-badge.nav-badge--error::part(base) { background: var(--color-error-bg); color: var(--color-error-text); }
+
+/* Brand lockup (mark: open bars like the ApexCharts mark, in BusinessApp blue) */
+::deep igc-nav-drawer-header-item.brand-item { padding: 4px 8px 16px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--color-text-primary); }
+.brand__mark { width: 32px; height: 32px; border-radius: var(--radius-md); background: var(--color-brand-blue-600); display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding-bottom: 8px; box-sizing: border-box; flex: none; }
+.brand__mark i { width: 4px; border-radius: 2px; display: block; }
+.brand__mark .b1 { height: 8px; background: #a6d8fd; }
+.brand__mark .b2 { height: 14px; background: #ffffff; }
+.brand__mark .b3 { height: 11px; background: var(--chart-2); }
+.brand__text { display: flex; flex-direction: column; }
+.brand__text strong { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -0.02em; line-height: 20px; }
+.brand__text small { font-size: 12px; color: var(--color-text-tertiary); line-height: 16px; }
+.brand--mini { justify-content: center; padding-bottom: 12px; }
+.nav-mini { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+/* ---------- Top bar (IgbNavbar) ---------- */
+::deep igc-navbar.app-bar {
+    --ig-navbar-background: var(--color-bg-primary);
+    --ig-navbar-text-color: var(--color-text-primary);
+    --ig-navbar-border-color: var(--color-border-default);
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid var(--color-border-default);
+}
+::deep igc-navbar.app-bar::part(base) { min-height: var(--app-header-height); padding: 0 32px; gap: 16px; box-shadow: none; }
+::deep igc-navbar.app-bar::part(middle) { flex: 1 1 auto; min-width: 0; }
+.crumbs { font-size: 14px; color: var(--color-text-tertiary); }
+.crumbs ol { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.crumb-current { color: var(--color-text-primary); font-weight: 600; }
+.bar-end { display: flex; align-items: center; gap: 16px; }
+::deep igc-input.global-search { width: clamp(220px, 32vw, 480px); --ig-size: var(--ig-size-medium); }
+::deep igc-input.global-search::part(container) { border-radius: var(--radius-sm); }
+::deep igc-input.global-search::part(prefix) { background: transparent; border: 0; color: var(--color-text-tertiary); padding-inline: 12px 4px; }
+::deep igc-avatar.me-avatar { --ig-avatar-size: 36px; box-shadow: 0 0 0 1px var(--avatar-blue-ring); border-radius: 50%; }
+::deep igc-icon-button.menu-btn { display: none; }
+
+/* ---------- Toast variants ---------- */
+::deep igc-toast.app-toast--success { --ig-toast-background: var(--color-success-strong); }
+::deep igc-toast.app-toast--error { --ig-toast-background: var(--color-error-strong); }
+
+/* ---------- Phone bottom tabs ---------- */
+.bottom-tabs { display: none; }
+
+/* Tablet: icon rail (drawer closed shows the mini slot) */
+@media (max-width: 1100px) {
+    ::deep igc-icon-button.menu-btn { display: inline-flex; }
+    ::deep igc-navbar.app-bar::part(base) { padding: 0 16px; }
+}
+
+/* Phone: drawer hidden, bottom tabs */
+@media (max-width: 720px) {
+    ::deep igc-nav-drawer.app-nav { display: none; }
+    ::deep igc-icon-button.menu-btn { display: none; }
+    ::deep igc-input.global-search { display: none; }
+    .app-content { padding-bottom: 80px; }
+    .bottom-tabs {
+        display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+        height: 72px; padding-bottom: 8px; box-sizing: border-box;
+        background: var(--color-bg-primary); border-top: 1px solid var(--color-border-default);
+    }
+    .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--color-text-secondary); font-weight: 500; text-decoration: none; }
+    .tab--on { color: var(--color-brand-blue-700); font-weight: 600; }
+    .tab__pill { width: 56px; height: 30px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; }
+    .tab--on .tab__pill { background: var(--color-brand-blue-50); }
+    .tab__label { font-size: 11px; line-height: 14px; }
+}

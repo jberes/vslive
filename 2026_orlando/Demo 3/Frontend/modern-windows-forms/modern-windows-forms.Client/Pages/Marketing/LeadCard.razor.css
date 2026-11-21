@@ -1,0 +1,41 @@
+.lead {
+    border-radius: var(--radius-lg);
+    cursor: grab;
+    transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1), opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.lead:hover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04); }
+.lead:active { cursor: grabbing; }
+.lead--dragging { opacity: 0.4; }
+.lead--dragging ::deep igc-card { border-style: dashed; }
+
+::deep igc-card.lead-card {
+    --ig-card-background: var(--color-bg-primary);
+    --ig-card-outline-color: var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+}
+::deep igc-card.lead-card::part(base) { border-radius: var(--radius-lg); }
+::deep igc-card-content.lead-card__body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+
+.who { display: flex; align-items: center; gap: 10px; }
+::deep igc-avatar.who__avatar { --ig-avatar-size: 32px; flex: none; font-size: 12px; }
+.who__text { flex: 1; min-width: 0; }
+.who__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who__meta { font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+::deep igc-icon.grip { --size: 14px; width: 14px; height: 14px; color: #9ca3af; flex: none; }
+
+.tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+::deep igc-chip.tag::part(base) { font-size: 11px; line-height: 20px; height: 20px; padding: 0 7px; }
+::deep igc-chip.status--neutral.tag::part(base) { font-weight: 500; }
+.country { font-size: 11px; color: var(--color-text-tertiary); }
+
+.foot { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--color-border-light); padding-top: 8px; }
+.value { font-weight: 600; }
+.owner { font-size: 12px; color: var(--color-text-tertiary); }
+
+::deep igc-button.advance { --ig-size: var(--ig-size-small); }
+::deep igc-button.advance::part(base) {
+    width: 100%; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-default); color: var(--color-text-primary);
+    font-size: 12px; font-weight: 500; box-shadow: none;
+}

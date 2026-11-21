@@ -1,0 +1,224 @@
+@page "/products"
+@using modern_windows_forms.Client.Models.Products
+@using Format = modern_windows_forms.Client.Shared.Format
+
+<PageTitle>Products · BusinessApp</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div class="page-head__text">
+            <h1 class="page-title">Products &amp; categories</h1>
+            <p class="page-lede">
+                @if (categories.Count == 0)
+                {
+                    <span class="skeleton lede-skeleton"></span>
+                }
+                else
+                {
+                    @($"{TotalProducts} products from {supplierCount?.ToString() ?? "—"} suppliers in {categories.Count} categories. Figures are {year} year to date.")
+                }
+            </p>
+        </div>
+        <div class="page-actions">
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="NewProduct">
+                <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                New product
+            </IgbButton>
+        </div>
+    </div>
+
+    @if (pageError is not null)
+    {
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" />
+            <span><strong>@pageError.Title</strong> @pageError.Detail</span>
+            <IgbButton Variant="ButtonVariant.Outlined" class="retry-btn" @onclick="RetryAsync">Retry</IgbButton>
+        </div>
+    }
+
+    @* Category pills: IgbChip per category with its product count *@
+    <div class="pills" role="tablist" aria-label="Category">
+        @if (categories.Count == 0 && pageError is null)
+        {
+            @for (var i = 0; i < 8; i++)
+            {
+                <span class="skeleton pill-skeleton"></span>
+            }
+        }
+        @foreach (var cat in categories)
+        {
+            <IgbChip class="@PillClass(cat)" role="tab" aria-selected="@(cat.Id == selected?.Id ? "true" : "false")"
+                     @onclick="@(() => SelectCategoryAsync(cat))">
+                @cat.Name<span class="pill-count">@cat.ProductCount</span>
+            </IgbChip>
+        }
+    </div>
+
+    @if (selected is not null)
+    {
+        <div class="cat-head">
+            <h2 class="cat-title">@selected.Name</h2>
+            <span class="muted">@selected.Description</span>
+        </div>
+
+        @if (view is null)
+        {
+            @* Loading skeletons *@
+            <div class="kpi-grid">
+                @for (var i = 0; i < 4; i++)
+                {
+                    <div class="kpi"><span class="skeleton sk-label"></span><span class="skeleton sk-value"></span><span class="skeleton sk-label"></span></div>
+                }
+            </div>
+            <div class="chart-row">
+                <div class="panel panel--pad"><span class="skeleton sk-chart"></span></div>
+                <div class="panel panel--pad"><span class="skeleton sk-chart"></span></div>
+            </div>
+            <div class="panel panel--pad"><IgbLinearProgress Indeterminate="true" /><span class="skeleton sk-grid"></span></div>
+        }
+        else
+        {
+            <div class="kpi-grid">
+                <div class="kpi">
+                    <div class="kpi__top">
+                        <span class="kpi__label">Revenue</span>
+                        @if (view.LastYearSamePeriod > 0)
+                        {
+                            <span class="@(view.RevenueDelta >= 0 ? "delta delta--up" : "delta delta--down")">@Format.Signed(view.RevenueDelta)</span>
+                        }
+                    </div>
+                    <span class="kpi__value">@Format.Compact(view.Revenue)</span>
+                    <span class="kpi__sub">@($"vs {Format.Compact(view.LastYearSamePeriod)} same period {year - 1}")</span>
+                </div>
+                <div class="kpi">
+                    <span class="kpi__label">Units sold</span>
+                    <span class="kpi__value">@Format.Number(view.Units)</span>
+                    <span class="kpi__sub">@(view.Units > 0 ? $"Avg {Format.Money(view.Revenue / view.Units)} per unit" : "No units sold yet")</span>
+                </div>
+                <div class="kpi">
+                    <span class="kpi__label">Active products</span>
+                    <span class="kpi__value">@($"{view.Active} of {view.Products.Count}")</span>
+                    <span class="kpi__sub">@(view.Products.Count - view.Active is var d && d > 0 ? $"{d} discontinued" : "None discontinued")</span>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__top">
+                        <span class="kpi__label">Needs reorder</span>
+                        @if (view.NeedsReorder.Count > 0)
+                        {
+                            <span class="delta delta--warn">Action</span>
+                        }
+                    </div>
+                    <span class="kpi__value">@view.NeedsReorder.Count</span>
+                    <span class="kpi__sub">@ReorderSummary</span>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <section class="panel panel--pad chart-panel">
+                    <div class="chart-head">
+                        <div>
+                            <h3 class="panel__title panel__title--sm">Revenue by quarter</h3>
+                            <div class="panel__sub">@($"{year - 1} vs {year} · Q{CurrentQuarter} {year} to date · ApexCharts")</div>
+                        </div>
+                    </div>
+                    <ApexChart TItem="QuarterPoint" Height="@("250")" Options="quarterOptions" FormatYAxisLabel="Format.Compact" @key="selected.Id">
+                        <ApexPointSeries TItem="QuarterPoint" Items="view.LastYearQuarters" Name="@((year - 1).ToString())" SeriesType="SeriesType.Bar"
+                                         XValue="@(e => e.Quarter)" YValue="@(e => e.Value)" />
+                        <ApexPointSeries TItem="QuarterPoint" Items="view.ThisYearQuarters" Name="@year.ToString()" SeriesType="SeriesType.Bar"
+                                         XValue="@(e => e.Quarter)" YValue="@(e => e.Value)" />
+                    </ApexChart>
+                </section>
+
+                <section class="panel panel--pad chart-panel">
+                    <div class="chart-head">
+                        <div>
+                            <h3 class="panel__title panel__title--sm">Revenue by product</h3>
+                            <div class="panel__sub">@($"Top {view.TopProducts.Count} in {selected.Name} · {year} year to date")</div>
+                        </div>
+                    </div>
+                    @if (view.TopProducts.Count == 0)
+                    {
+                        <div class="chart-empty muted">No sales yet this year.</div>
+                    }
+                    else
+                    {
+                        <ApexChart TItem="ProductSales" Height="@("250")" Options="productOptions" FormatYAxisLabel="Format.Compact" @key="selected.Id">
+                            <ApexPointSeries TItem="ProductSales" Items="view.TopProducts" Name="Revenue" SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Product)" YValue="@(e => e.Sales)" />
+                        </ApexChart>
+                    }
+                </section>
+            </div>
+
+            @* Stock vs reorder level: IgbGrid with templated bar + status chip cells *@
+            <section class="panel stock-panel">
+                <div class="panel__head">
+                    <div>
+                        <h3 class="panel__title panel__title--sm">Stock vs reorder level</h3>
+                        <div class="panel__sub">Bar shows units in stock; the dark tick is the reorder level</div>
+                    </div>
+                    <IgbChip class="@(lowOnly ? "pill pill--on toggle-chip" : "pill toggle-chip")" Selectable="true" @bind-Selected="lowOnly">
+                        @if (!lowOnly)
+                        {
+                            <IgbIcon slot="start" IconName="filter" Collection="@Icons.Collection" />
+                        }
+                        Needs reorder only
+                    </IgbChip>
+                </div>
+
+                @if (GridRows.Count == 0)
+                {
+                    <div class="grid-empty">
+                        <div class="grid-empty__title">@($"Nothing to reorder in {selected.Name}")</div>
+                        <div class="muted">Every active product is above its reorder level.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="stock-grid-wrap">
+                        <IgbGrid class="stock-grid" Data="GridRows" PrimaryKey="Id" AutoGenerate="false" Width="100%"
+                                 Height="@GridHeight" RowHeight="48" @key="GridKey">
+                            <IgbColumn Field="Name" Header="Product" DataType="GridColumnDataType.String" Sortable="true" MinWidth="180px" />
+                            <IgbColumn Field="SupplierName" Header="Supplier" DataType="GridColumnDataType.String" Sortable="true" MinWidth="160px" />
+                            <IgbColumn Field="QuantityPerUnit" Header="Qty per unit" DataType="GridColumnDataType.String" MinWidth="140px" />
+                            <IgbColumn Field="UnitPrice" Header="Price" DataType="GridColumnDataType.Currency" Sortable="true" Width="110px" />
+                            <IgbColumn Field="UnitsInStock" Header="In stock / reorder at" DataType="GridColumnDataType.Number" Sortable="true" MinWidth="200px">
+                                <BodyTemplate>
+                                    @{ var r = RowFor((IgbCellTemplateContext)context); }
+                                    @if (r is not null)
+                                    {
+                                        <span class="stock-cell">
+                                            <span class="@StockTrackClass(r)" style="@StockStyle(r)">
+                                                <span class="stock-fill"></span>
+                                                @if (r.ReorderLevel > 0)
+                                                {
+                                                    <span class="stock-tick"></span>
+                                                }
+                                            </span>
+                                            <span class="stock-text num">@(r.ReorderLevel > 0 ? $"{r.UnitsInStock} / {r.ReorderLevel}" : r.UnitsInStock.ToString())</span>
+                                        </span>
+                                    }
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="UnitsOnOrder" Header="On order" DataType="GridColumnDataType.Number" Sortable="true" Width="110px">
+                                <BodyTemplate>
+                                    @{ var r = RowFor((IgbCellTemplateContext)context); }
+                                    <span class="num muted on-order">@(r is null || r.UnitsOnOrder == 0 ? "—" : r.UnitsOnOrder.ToString())</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="Status" Header="Status" DataType="GridColumnDataType.String" Sortable="true" Width="160px">
+                                <BodyTemplate>
+                                    @{ var r = RowFor((IgbCellTemplateContext)context); }
+                                    @if (r is not null)
+                                    {
+                                        <StatusChip Text="@r.Status" Tone="@StatusTone(r.Status)" />
+                                    }
+                                </BodyTemplate>
+                            </IgbColumn>
+                        </IgbGrid>
+                    </div>
+                }
+            </section>
+        }
+    }
+</div>

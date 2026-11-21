@@ -1,0 +1,209 @@
+/* =====================================================================
+   BusinessApp — global styles
+   ApexCharts design system (tokens.css) applied to Ignite UI for Blazor.
+   Component-specific layout lives in each page's .razor.css.
+   ===================================================================== */
+
+:root {
+    /* Ignite UI typography + roundness mapped to the design system */
+    --ig-font-family: var(--font-sans);
+    --ig-radius-factor: 0.5;
+    --ig-size: var(--ig-size-medium);
+    --app-header-height: 64px;
+    --app-nav-width: 248px;
+}
+
+html, body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-secondary);
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--color-text-link); text-decoration: none; }
+a:hover { color: var(--color-text-link-hover); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.025em; margin: 0; }
+/* FocusOnNavigate moves focus to the page h1 for screen readers; no visible ring on a non-interactive heading */
+h1:focus { outline: none; }
+
+/* ---------- Page scaffold (used by every page) ---------- */
+.page {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--container-max);
+    padding: var(--space-6) var(--space-8) var(--space-10);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.page-head__text { flex: 1 1 300px; min-width: 0; }
+.page-title { font-size: 30px; line-height: 37.5px; font-weight: 600; }
+.page-lede { margin: 2px 0 0; color: var(--color-text-secondary); }
+.page-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+/* ---------- Surfaces ---------- */
+.panel {
+    box-sizing: border-box;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    min-width: 0;
+}
+.panel--pad { padding: var(--space-5); }
+.panel__head {
+    display: flex; flex-wrap: wrap; gap: var(--space-3);
+    justify-content: space-between; align-items: center;
+    padding: 14px var(--space-5);
+}
+.panel__title { margin: 0; font-family: var(--font-display); font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.panel__title--sm { font-family: var(--font-sans); font-size: 16px; letter-spacing: 0; }
+.panel__sub { font-size: 12px; color: var(--color-text-tertiary); }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--color-text-secondary); }
+.subtle { color: var(--color-text-tertiary); font-size: 12px; }
+.text-up { color: var(--color-success-text); font-weight: 600; }
+.text-down { color: var(--color-error-text); font-weight: 600; }
+
+/* ---------- KPI tiles (plain HTML per component-mapping guidance) ---------- */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+.kpi {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: var(--space-4) 18px;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-raised);
+    min-width: 0;
+}
+.kpi__label { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+.kpi__value { font-family: var(--font-display); font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.025em; }
+.kpi__sub { font-size: 12px; color: var(--color-text-tertiary); }
+
+/* ---------- Status chips (IgbChip) ---------- */
+igc-chip.status { --ig-size: var(--ig-size-small); }
+igc-chip.status::part(base) { border-radius: var(--radius-full); font-weight: 600; font-size: 12px; border: 0; }
+igc-chip.status--info::part(base)    { background: var(--color-info-bg);    color: var(--color-info-text); }
+igc-chip.status--success::part(base) { background: var(--color-success-bg); color: var(--color-success-text); }
+igc-chip.status--warning::part(base) { background: var(--color-warning-bg); color: var(--color-warning-text); }
+igc-chip.status--error::part(base)   { background: var(--color-error-bg);   color: var(--color-error-text); }
+igc-chip.status--neutral::part(base) { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
+igc-chip.status--violet::part(base)  { background: #efebfa; color: #5b45b0; }
+
+/* Filter pills (selectable IgbChip) */
+igc-chip.pill::part(base) { border-radius: var(--radius-full); border: 1px solid var(--color-border-default); background: var(--color-bg-primary); color: var(--color-text-primary); font-weight: 500; }
+igc-chip.pill[selected]::part(base), igc-chip.pill--on::part(base) { border-color: var(--color-brand-blue); background: var(--color-brand-blue-50); color: var(--color-info-text); }
+
+/* ---------- Avatars (design-system avatar trios) ---------- */
+igc-avatar { --ig-avatar-background: var(--avatar-blue-bg); --ig-avatar-color: var(--avatar-blue-fg); }
+igc-avatar.av--blue  { --ig-avatar-background: var(--avatar-blue-bg);  --ig-avatar-color: var(--avatar-blue-fg); }
+igc-avatar.av--rose  { --ig-avatar-background: var(--avatar-rose-bg);  --ig-avatar-color: var(--avatar-rose-fg); }
+igc-avatar.av--green { --ig-avatar-background: var(--avatar-green-bg); --ig-avatar-color: var(--avatar-green-fg); }
+igc-avatar.av--amber { --ig-avatar-background: var(--avatar-amber-bg); --ig-avatar-color: var(--avatar-amber-fg); }
+igc-avatar::part(base) { font-weight: 600; }
+
+/* ---------- Buttons ---------- */
+igc-button::part(base) { font-weight: 600; letter-spacing: 0; text-transform: none; }
+igc-button[variant="contained"] { --ig-button-background: var(--color-action-brand); --ig-button-hover-background: var(--color-action-brand-hover); --ig-button-foreground: #fff; --ig-button-hover-foreground: #fff; }
+
+/* ---------- Linear progress ---------- */
+igc-linear-progress { --ig-linear-progress-track-color: var(--color-bg-tertiary); --ig-linear-progress-fill-color-default: var(--color-brand-blue); }
+igc-linear-progress::part(track) { border-radius: var(--radius-full); }
+igc-linear-progress::part(fill) { border-radius: var(--radius-full); }
+igc-linear-progress::part(label) { display: none; }
+igc-linear-progress.lp--teal { --ig-linear-progress-fill-color-default: var(--chart-accent-teal); }
+igc-linear-progress.lp--red  { --ig-linear-progress-fill-color-default: var(--color-error); --ig-linear-progress-fill-color-danger: var(--color-error); }
+igc-linear-progress.lp--green { --ig-linear-progress-fill-color-default: var(--color-success); }
+igc-linear-progress.lp--amber { --ig-linear-progress-fill-color-default: var(--chart-3); }
+
+/* ---------- IgbGrid: ApexGrid "sample" look from the design system ---------- */
+igc-grid, igc-tree-grid, igc-hierarchical-grid {
+    --ig-grid-header-background: var(--sample-grid-header);
+    --ig-grid-header-text-color: var(--color-text-secondary);
+    --ig-grid-header-border-color: var(--sample-grid-border);
+    --ig-grid-content-background: var(--color-bg-primary);
+    --ig-grid-content-text-color: var(--sample-ink);
+    --ig-grid-row-border-color: var(--sample-grid-border);
+    --ig-grid-row-hover-background: var(--sample-grid-row-hover);
+    --ig-grid-row-selected-background: var(--color-selected-bg);
+    --ig-grid-row-selected-hover-background: var(--color-selected-bg);
+    --ig-grid-row-selected-text-color: var(--sample-ink);
+    --ig-grid-cell-selected-background: var(--color-selected-bg);
+    --ig-grid-cell-selected-text-color: var(--sample-ink);
+    --ig-grid-cell-active-border-color: var(--color-border-focus);
+    --ig-grid-row-even-background: var(--color-bg-primary);
+    --ig-grid-row-odd-background: var(--color-bg-primary);
+    --ig-grid-grid-border-color: var(--sample-grid-border);
+    font-family: var(--font-sans);
+    font-size: 14px;
+}
+igc-grid .igx-grid-th__title, igc-grid .igx-grid-thead__title { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; font-weight: 600; }
+
+/* IgbGrid BodyTemplate content is wrapped in unclassed divs that default to min-width:auto,
+   so templates overflow into neighbouring cells. Let them shrink so ellipsis rules apply. */
+igx-grid-cell.igx-grid__td { overflow: hidden; }
+igx-grid-cell.igx-grid__td div:not([class]) { min-width: 0; max-width: 100%; }
+
+/* Toolbar that only hosts the Orders CSV exporter (IgbGridToolbar accepts no class attribute) */
+.orders-grid igc-grid-toolbar { display: none !important; }
+
+/* ---------- Tabs ---------- */
+igc-tabs { --ig-tabs-item-active-color: var(--color-text-brand); --ig-tabs-indicator-color: var(--color-brand-blue); --ig-tabs-item-active-icon-color: var(--color-text-brand); }
+
+/* ---------- Dialog ---------- */
+igc-dialog::part(base) { border-radius: var(--radius-lg); box-shadow: var(--shadow-modal); }
+igc-dialog::part(title) { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+
+/* ---------- Toast ---------- */
+igc-toast { --ig-toast-background: var(--color-text-primary); --ig-toast-text-color: #fff; }
+igc-toast::part(base) { border-radius: var(--radius-md); box-shadow: var(--shadow-overlay); }
+
+/* ---------- Skeleton shimmer (loading states) ---------- */
+.skeleton {
+    display: block; border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-hover-bg) 37%, var(--color-bg-tertiary) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ---------- Problem banner (RFC 7807 errors) ---------- */
+.banner { display: flex; gap: var(--space-3); align-items: flex-start; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid; font-size: 14px; line-height: 22.75px; }
+.banner strong { font-weight: 600; }
+.banner--error { background: var(--color-error-bg); border-color: var(--color-error-border); color: var(--color-error-text); }
+.banner--warning { background: var(--color-warning-bg); border-color: var(--color-warning-border); color: var(--color-warning-text); }
+.banner--info { background: var(--color-info-bg); border-color: var(--color-info-border); color: var(--color-info-text); }
+.banner--success { background: var(--color-success-bg); border-color: var(--color-success-border); color: var(--color-success-text); }
+
+/* ---------- ApexCharts (Blazor-ApexCharts) ---------- */
+.apexcharts-canvas { font-family: var(--font-sans) !important; }
+.apexcharts-tooltip { border: 1px solid var(--sample-tooltip-border) !important; box-shadow: var(--shadow-sample-tooltip) !important; border-radius: var(--radius-md) !important; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    .page { padding: var(--space-4); }
+    .page-title { font-size: 24px; line-height: 30px; }
+}
+
+/* Hidden probe IgbIcon used to register the Lucide set (Shared/IconRegistrar.razor) */
+igc-icon.icon-registrar { position: absolute; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+
+/* Lucide icons are outline SVGs: never let theme fills paint them solid */
+igc-icon[collection="lucide"] { --ig-icon-color: currentColor; }
+
+#blazor-error-ui { display: none; }
+
+/* ApexGantt tooltip (rendered outside the page's scoped CSS) */
+.apexgantt-tooltip .gx-tip { font-family: var(--font-sans); font-size: 12px; line-height: 18px; color: var(--sample-tooltip-ink); }
+.apexgantt-tooltip .gx-tip-title { font-weight: 600; margin-bottom: 2px; }
+.apexgantt-tooltip .gx-tip-row, .apexgantt-tooltip .gx-tip-who { color: var(--color-text-secondary); }

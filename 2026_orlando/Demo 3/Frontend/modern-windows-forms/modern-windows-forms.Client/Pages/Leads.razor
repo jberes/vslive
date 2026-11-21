@@ -1,0 +1,109 @@
+@page "/leads"
+@using modern_windows_forms.Client.Models.Marketing
+@using modern_windows_forms.Client.Pages.Marketing
+
+<PageTitle>Leads · BusinessApp</PageTitle>
+
+<div class="page page--wide">
+    <div class="page-head">
+        <div class="page-head__text">
+            <h1 class="page-title">Leads pipeline</h1>
+            <p class="page-lede">
+                @if (kpis is null)
+                {
+                    <span class="skeleton lede-skeleton"></span>
+                }
+                else
+                {
+                    @($"{Format.Number(kpis.TotalLeads)} leads · {Format.Compact(kpis.PipelineValue)} open across {Format.Number(kpis.OpenLeads)} leads · drag a card to change its stage.")
+                }
+            </p>
+        </div>
+        <div class="page-actions">
+            <IgbSelect class="owner-select" Label="Owner" Outlined="true" @bind-Value="ownerFilter" aria-label="Filter by owner">
+                <IgbSelectItem Value="@AllOwners">Everyone</IgbSelectItem>
+                @foreach (var owner in Owners)
+                {
+                    <IgbSelectItem Value="@owner.Id.ToString()">@owner.Name</IgbSelectItem>
+                }
+            </IgbSelect>
+            <IgbChip class="@(showLost ? "pill pill--on" : "pill")" @onclick="ToggleLostAsync" aria-pressed="@(showLost ? "true" : "false")">
+                Show lost@(lostCount is { } n ? $" ({Format.Number(n)})" : "")
+            </IgbChip>
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="NewLeadAsync">
+                <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                New lead
+            </IgbButton>
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="wifi-off" Collection="@Icons.Collection" aria-hidden="true" />
+            <span class="banner__text"><strong>Couldn't load leads.</strong> @loadError.Detail</span>
+            <IgbButton Variant="ButtonVariant.Contained" @onclick="LoadAsync">Retry</IgbButton>
+        </div>
+    }
+
+    <div class="board-scroll">
+        <div class="board">
+            @foreach (var status in VisibleStatuses)
+            {
+                var column = columns[status];
+                var items = Filtered(column);
+                var isOver = overStatus == status && dragLead is not null && dragLead.Status != status;
+                <section class="@(isOver ? "col col--over" : "col")" aria-label="@($"{status} column")"
+                         @ondragenter="() => overStatus = status"
+                         @ondragover:preventDefault="true"
+                         @ondrop="() => DropAsync(status)">
+                    <div class="col__head">
+                        <div class="col__title">
+                            <span class="dot" style="--dot: @StageColor(status)"></span>
+                            <h2>@status</h2>
+                            <span class="count">@(column.Loading ? "…" : Format.Number(items.Count))</span>
+                        </div>
+                        <div class="col__value">@(column.Loading ? "Loading…" : $"{Format.Compact(items.Sum(l => l.EstimatedValue))} estimated")</div>
+                    </div>
+
+                    @if (isOver)
+                    {
+                        <div class="drop-hint">Drop to move to @status</div>
+                    }
+
+                    @if (column.Loading)
+                    {
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            <div class="card-skeleton" aria-hidden="true">
+                                <div class="sk-row"><span class="skeleton sk-avatar"></span><span class="skeleton sk-line"></span></div>
+                                <span class="skeleton sk-chip"></span>
+                                <span class="skeleton sk-foot"></span>
+                            </div>
+                        }
+                    }
+                    else if (items.Count == 0)
+                    {
+                        <div class="col-empty">No leads in @status.ToString().ToLowerInvariant()</div>
+                    }
+                    else
+                    {
+                        @foreach (var lead in items.Take(column.Shown))
+                        {
+                            <LeadCard @key="lead.Id" Lead="lead" Dragging="@(dragLead?.Id == lead.Id)"
+                                      DragStarted="StartDrag" DragEnded="EndDrag" Advance="AdvanceAsync" />
+                        }
+                        @if (items.Count > column.Shown)
+                        {
+                            <IgbButton class="more" Variant="ButtonVariant.Flat" @onclick="() => column.Shown += PageSize">
+                                Show @Format.Number(items.Count - column.Shown) more
+                            </IgbButton>
+                        }
+                    }
+                </section>
+            }
+        </div>
+    </div>
+</div>
+
+<ConvertLeadDialog @ref="convertDialog" Converted="OnConvertedAsync" Cancelled="OnConvertCancelled" />

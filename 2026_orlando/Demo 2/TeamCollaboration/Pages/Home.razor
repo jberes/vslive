@@ -1,0 +1,86 @@
+@page "/"
+@page "/dashboard"
+@inject WorkspaceState Workspace
+
+<PageTitle>Dashboards - Team Collaboration</PageTitle>
+
+<aside class="section-sidebar" aria-label="Dashboard navigation">
+    <h2>Dashboards</h2>
+    <nav class="sidebar-list dashboard-sidebar-list" aria-label="Dashboard views">
+        @foreach (var item in dashboardViews)
+        {
+            <button type="button" class="sidebar-row" @onclick="() => SelectView(item.Name)"
+                    aria-current="@(selectedView == item.Name ? "page" : null)">
+                <span>@item.Name</span>
+                <img src="@item.Icon" alt="" />
+            </button>
+        }
+    </nav>
+</aside>
+
+<main class="page-content dashboard-content">
+    <h1>@selectedView</h1>
+    <div class="dashboard-cards">
+        @foreach (var dashboard in VisibleDashboards)
+        {
+            <IgbCard class="dashboard-card" Elevated="true">
+                <IgbCardMedia class="dashboard-card-media">
+                    <img src="@dashboard.Image" alt="Preview of @dashboard.Title" />
+                </IgbCardMedia>
+                <div class="dashboard-card-content">
+                    <IgbCardHeader class="dashboard-card-header">
+                        <span slot="title">@dashboard.Title</span>
+                        <span slot="subtitle">Jun 15, 2020 - @dashboard.Author</span>
+                    </IgbCardHeader>
+                    <IgbCardActions class="dashboard-card-actions">
+                        <div slot="end" class="card-action-buttons">
+                            <button type="button" class="card-icon-button"
+                                    aria-label="@(dashboard.IsFavorite ? $"Remove {dashboard.Title} from favorites" : $"Add {dashboard.Title} to favorites")"
+                                    aria-pressed="@dashboard.IsFavorite.ToString().ToLowerInvariant()"
+                                    @onclick="() => ToggleFavorite(dashboard)">
+                                <img src="@(dashboard.IsFavorite ? "assets/figma/card-star-filled.svg" : "assets/figma/card-star-outline.svg")" alt="" />
+                            </button>
+                            <button type="button" class="card-icon-button" aria-label="Share @dashboard.Title"
+                                    title="Sharing is not available in this demo" disabled>
+                                <img src="assets/figma/card-share.svg" alt="" />
+                            </button>
+                        </div>
+                    </IgbCardActions>
+                </div>
+            </IgbCard>
+        }
+        @if (!VisibleDashboards.Any())
+        {
+            <p class="empty-state">No favorites yet. Select a star to add a dashboard.</p>
+        }
+    </div>
+    <button type="button" class="floating-add" aria-label="Add dashboard"
+            title="Adding dashboards is not available in this demo" disabled>
+        <img src="assets/figma/add-black.svg" alt="" />
+    </button>
+</main>
+
+@code {
+    private string selectedView = "Recent";
+
+    private readonly (string Name, string Icon)[] dashboardViews =
+    [
+        ("Dashboards", "assets/figma/sidebar-dashboard.svg"),
+        ("Favorites", "assets/figma/sidebar-star.svg"),
+        ("Recent", "assets/figma/sidebar-recent.svg"),
+        ("Samples", "assets/figma/sidebar-samples.svg")
+    ];
+
+    private IEnumerable<DashboardItem> VisibleDashboards =>
+        selectedView == "Favorites"
+            ? Workspace.Dashboards.Where(item => item.IsFavorite)
+            : Workspace.Dashboards;
+
+    private void SelectView(string view) => selectedView = view;
+
+    private void ToggleFavorite(DashboardItem dashboard)
+    {
+        dashboard.IsFavorite = !dashboard.IsFavorite;
+        Workspace.NotifyChanged();
+    }
+}

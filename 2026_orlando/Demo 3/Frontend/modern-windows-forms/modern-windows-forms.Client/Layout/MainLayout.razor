@@ -1,0 +1,112 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+
+<IconRegistrar />
+
+<div class="app-shell">
+    @* Sidebar: IgbNavDrawer pinned in-flow (Relative). Closed → the "mini" slot renders an icon rail (tablet). *@
+    <IgbNavDrawer class="app-nav" Open="@drawerOpen" Position="NavDrawerPosition.Relative">
+        <IgbNavDrawerHeaderItem class="brand-item">
+            <a class="brand" href="">
+                <span class="brand__mark" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i></span>
+                <span class="brand__text"><strong>BusinessApp</strong><small>Northwind Traders</small></span>
+            </a>
+        </IgbNavDrawerHeaderItem>
+
+        @foreach (var group in NavModel.Groups)
+        {
+            @if (!string.IsNullOrEmpty(group.Title))
+            {
+                <IgbNavDrawerHeaderItem class="nav-group">@group.Title</IgbNavDrawerHeaderItem>
+            }
+            @foreach (var item in group.Items)
+            {
+                <IgbNavDrawerItem class="@ItemClass(item)" Active="@(item.Key == activeKey)" @onclick="@(() => Go(item))">
+                    <IgbIcon slot="icon" IconName="@item.Icon" Collection="@Icons.Collection" />
+                    <span slot="content" class="nav-label">
+                        <span>@item.Label</span>
+                        @if (BadgeFor(item.Key) is { } badge)
+                        {
+                            <IgbBadge class="@(badge.Tone == BadgeTone.Error ? "nav-badge nav-badge--error" : "nav-badge")">@badge.Text</IgbBadge>
+                        }
+                    </span>
+                </IgbNavDrawerItem>
+            }
+        }
+
+        <div class="nav-spacer"></div>
+        <IgbNavDrawerHeaderItem class="nav-group nav-group--proto">Prototype</IgbNavDrawerHeaderItem>
+        @foreach (var item in NavModel.Prototype)
+        {
+            <IgbNavDrawerItem class="@ItemClass(item)" Active="@(item.Key == activeKey)" @onclick="@(() => Go(item))">
+                <IgbIcon slot="icon" IconName="@item.Icon" Collection="@Icons.Collection" />
+                <span slot="content">@item.Label</span>
+            </IgbNavDrawerItem>
+        }
+
+        <div slot="mini" class="nav-mini">
+            <a class="brand brand--mini" href="" aria-label="BusinessApp home">
+                <span class="brand__mark" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i></span>
+            </a>
+            @foreach (var item in NavModel.All)
+            {
+                <IgbNavDrawerItem class="@ItemClass(item)" Active="@(item.Key == activeKey)" @onclick="@(() => Go(item))" title="@item.Label">
+                    <IgbIcon slot="icon" IconName="@item.Icon" Collection="@Icons.Collection" />
+                </IgbNavDrawerItem>
+            }
+        </div>
+    </IgbNavDrawer>
+
+    <div class="app-main">
+        @* Top bar: IgbNavbar with breadcrumb, global search (IgbInput) and the signed-in user (IgbAvatar) *@
+        <IgbNavbar class="app-bar">
+            <IgbIconButton slot="start" class="menu-btn" IconName="menu" Collection="@Icons.Collection" Variant="IconButtonVariant.Flat"
+                           @onclick="ToggleDrawer" aria-label="Toggle navigation" />
+            <nav aria-label="Breadcrumb" class="crumbs">
+                @* IgbBreadcrumbs is not part of IgniteUI.Blazor 26.1, so the trail is plain markup *@
+                <ol>
+                    @if (!string.IsNullOrEmpty(section) && section != "Home")
+                    {
+                        <li class="crumb-section">@section</li>
+                        <li class="crumb-sep" aria-hidden="true">/</li>
+                    }
+                    <li class="crumb-current" aria-current="page">@pageLabel</li>
+                </ol>
+            </nav>
+            <div slot="end" class="bar-end">
+                <IgbInput class="global-search" Placeholder="Search customers, orders, products…" Outlined="true"
+                          @bind-Value="searchText" @onkeydown="OnSearchKey" aria-label="Search everything">
+                    <IgbIcon slot="prefix" IconName="search" Collection="@Icons.Collection" />
+                </IgbInput>
+                <IgbAvatar class="me-avatar av--blue" Shape="AvatarShape.Circle" Initials="LC" aria-label="Laura Callahan" title="Laura Callahan" />
+            </div>
+        </IgbNavbar>
+
+        <main class="app-content">
+            <ErrorBoundary @ref="errorBoundary">
+                <ChildContent>@Body</ChildContent>
+                <ErrorContent>
+                    <div class="page">
+                        <div class="banner banner--error" role="alert">
+                            <span><strong>Something went wrong.</strong> This screen hit an unexpected error. <a href="" @onclick="Recover" @onclick:preventDefault>Reload the screen</a></span>
+                        </div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </main>
+
+        @* Phone: bottom tabs replace the drawer (<= 720px) *@
+        <nav class="bottom-tabs" aria-label="Main">
+            @foreach (var tab in NavModel.PhoneTabs)
+            {
+                <a class="@(IsPhoneTabActive(tab) ? "tab tab--on" : "tab")" href="@tab.Href" aria-current="@(IsPhoneTabActive(tab) ? "page" : null)">
+                    <span class="tab__pill"><IgbIcon IconName="@tab.Icon" Collection="@Icons.Collection" /></span>
+                    <span class="tab__label">@tab.Label</span>
+                </a>
+            }
+        </nav>
+    </div>
+</div>
+
+<IgbToast @ref="toast" class="@ToastClass" DisplayTime="4000" Position="AbsolutePosition.Bottom">@toastMessage</IgbToast>
+<IgbSnackbar @ref="snackbar" DisplayTime="6000" ActionText="@snackAction" Action="OnSnackAction" Position="AbsolutePosition.Bottom">@snackMessage</IgbSnackbar>

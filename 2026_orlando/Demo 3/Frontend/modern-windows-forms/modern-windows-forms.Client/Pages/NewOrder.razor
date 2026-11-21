@@ -1,0 +1,241 @@
+@page "/orders/new"
+@using modern_windows_forms.Client.Models.Orders
+
+<PageTitle>New order · BusinessApp</PageTitle>
+
+@if (created is not null)
+{
+    @* 201 Created: success panel *@
+    <div class="success-wrap">
+        <div class="success">
+            <div class="success__head">
+                <span class="success__icon"><IgbIcon IconName="check-circle" Collection="@Icons.Collection" /></span>
+                <div>
+                    <div class="eyebrow-ok">201 Created</div>
+                    <h1 class="success__title">Order <span class="success__no">#@created.Id</span> is in</h1>
+                    <p class="success__lede">Stock was allocated for @createdLineCount @(createdLineCount == 1 ? "line" : "lines"). @createdBackorderNote</p>
+                </div>
+            </div>
+            <div class="facts">
+                <div class="fact"><div class="fact__label">Customer</div><div class="fact__value">@created.CustomerName</div></div>
+                <div class="fact"><div class="fact__label">Required by</div><div class="fact__value">@Format.Date(created.RequiredDate)</div></div>
+                <div class="fact"><div class="fact__label">Order total</div><div class="fact__value">@Format.Money(created.Total)</div></div>
+            </div>
+            <div class="success__actions">
+                <IgbButton Variant="ButtonVariant.Contained" Href="@($"orders?search={created.Id}&status=all")">View in Orders</IgbButton>
+                <IgbButton Variant="ButtonVariant.Outlined" class="btn-ghost" @onclick="ResetAsync">Create another order</IgbButton>
+                <IgbButton Variant="ButtonVariant.Flat" Href="@($"customers?search={Uri.EscapeDataString(created.CustomerName ?? string.Empty)}")">Open customer</IgbButton>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page">
+        <div class="page-head">
+            <div class="page-head__text">
+                <h1 class="page-title">New order</h1>
+                <p class="page-lede">Stock is allocated when the order is created. Lines above available stock become backorders.</p>
+            </div>
+            <div class="page-actions">
+                <span class="@(problem is null ? "save-note" : "save-note save-note--error")">@(problem is null ? "Draft · not saved yet" : "Not saved · fix 400 errors")</span>
+            </div>
+        </div>
+
+        @if (loadError is not null)
+        {
+            <div class="banner banner--error" role="alert">
+                <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" />
+                <span class="grow"><strong>@loadError.Title</strong> @loadError.Detail</span>
+                <IgbButton Variant="ButtonVariant.Outlined" @onclick="LoadReferenceDataAsync">Retry</IgbButton>
+            </div>
+        }
+
+        @if (problem is not null)
+        {
+            <div class="problem" role="alert">
+                <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" class="problem__icon" />
+                <div class="problem__body">
+                    @if (problem.Status == 400)
+                    {
+                        <div class="problem__title">The server couldn't create this order (@errors.Count @(errors.Count == 1 ? "problem" : "problems"))</div>
+                        <div class="problem__sub">400 Bad Request · @(problem.Title ?? "One or more validation errors occurred.") Fix the highlighted fields and try again.</div>
+                        <ul class="problem__list">
+                            @foreach (var e in errors)
+                            {
+                                <li><span class="mono">@e.Field</span> — @e.Message</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="problem__title">@(problem.Title ?? "The order couldn't be created")</div>
+                        <div class="problem__sub">@(problem.Status is > 0 ? $"{problem.Status} · " : "")@problem.Detail</div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="layout">
+            <div class="main">
+                @* ---------- Customer and dates ---------- *@
+                <section class="panel panel--pad section">
+                    <h2 class="panel__title">Customer and dates</h2>
+                    <div class="form-grid">
+                        <div class="field">
+                            <IgbCombo T="int" class="combo" Label="Customer" Outlined="true" SingleSelect="true"
+                                      Data="customers" ValueKey="Id" DisplayKey="CompanyName" Placeholder="Search customers"
+                                      PlaceholderSearch="Name or code" Change="OnCustomerComboChange"
+                                      Invalid="@HasError("customerId")" Disabled="@(customers.Count == 0)">
+                                <span slot="helper-text" class="@(HasError("customerId") ? "helper helper--error" : "helper")">@(ErrorFor("customerId") ?? CustomerMeta)</span>
+                            </IgbCombo>
+                        </div>
+                        <div class="field">
+                            <IgbSelect class="select" Label="Sales employee" Outlined="true" @bind-Value="employeeValue" Invalid="@HasError("employeeId")">
+                                @foreach (var employee in employees)
+                                {
+                                    <IgbSelectItem Value="@employee.Id.ToString()">@employee.Name</IgbSelectItem>
+                                }
+                                @if (HasError("employeeId")) { <span slot="helper-text" class="helper helper--error">@ErrorFor("employeeId")</span> }
+                            </IgbSelect>
+                        </div>
+                        <div class="field">
+                            <IgbDatePicker class="date" Label="Order date" Outlined="true" Value="orderDate" ValueChanged="OnOrderDateChanged" Invalid="@HasError("orderDate")">
+                                <span slot="helper-text" class="@(HasError("orderDate") ? "helper helper--error" : "helper")">@(ErrorFor("orderDate") ?? "MM/DD/YYYY")</span>
+                            </IgbDatePicker>
+                        </div>
+                        <div class="field">
+                            <IgbDatePicker class="date" Label="Required date" Outlined="true" @bind-Value="requiredDate" Invalid="@HasError("requiredDate")">
+                                @if (HasError("requiredDate"))
+                                {
+                                    <span slot="helper-text" class="helper helper--error">
+                                        @ErrorFor("requiredDate")
+                                        <button type="button" class="fix-btn" @onclick="UseDefaultRequiredDate">Use @DefaultRequiredDate.ToString("MM/dd/yyyy")</button>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span slot="helper-text" class="helper">Default is 4 weeks after the order date</span>
+                                }
+                            </IgbDatePicker>
+                        </div>
+                    </div>
+                </section>
+
+                @* ---------- Ship via: radio group rendered as selectable cards ---------- *@
+                <section class="panel panel--pad section">
+                    <h2 class="panel__title">Ship via</h2>
+                    <IgbRadioGroup class="ship-cards" @bind-Value="shipViaValue" aria-label="Shipper">
+                        @foreach (var shipper in shippers)
+                        {
+                            <IgbRadio class="@ShipCardClass(shipper)" Value="@shipper.Id.ToString()" LabelPosition="ToggleLabelPosition.Before">
+                                <span class="ship-card__body">
+                                    <IgbIcon IconName="truck" Collection="@Icons.Collection" class="ship-card__icon" />
+                                    <span class="ship-card__name">@shipper.CompanyName</span>
+                                    <span class="ship-card__phone">@shipper.Phone</span>
+                                </span>
+                            </IgbRadio>
+                        }
+                    </IgbRadioGroup>
+                    @if (HasError("shipViaId"))
+                    {
+                        <span class="helper helper--error">@ErrorFor("shipViaId")</span>
+                    }
+                    <div class="ship-to">
+                        <IgbIcon IconName="map-pin" Collection="@Icons.Collection" />
+                        @if (customer is null)
+                        {
+                            <span>Ships to the customer's address once you pick a customer.</span>
+                        }
+                        else
+                        {
+                            <span>Ship to @customer.CompanyName, @CustomerAddress</span>
+                        }
+                    </div>
+                </section>
+
+                @* ---------- Line items ---------- *@
+                <section class="@(HasError("details") ? "panel section lines lines--error" : "panel section lines")">
+                    <div class="lines__bar">
+                        <h2 class="panel__title">Line items</h2>
+                        <IgbButton Variant="ButtonVariant.Outlined" class="btn-ghost btn-sm" @onclick="AddLine" Disabled="@(products.Count == 0)">
+                            <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                            Add product
+                        </IgbButton>
+                    </div>
+                    @if (HasError("details"))
+                    {
+                        <div class="lines__error">@ErrorFor("details")</div>
+                    }
+                    <div class="lines__scroll">
+                        <div class="lines__table">
+                            <div class="lines__head">
+                                <span>Product</span><span class="r">Unit price</span><span>Quantity</span><span>Discount</span><span class="r">Line total</span><span></span>
+                            </div>
+                            @if (lines.Count == 0)
+                            {
+                                <div class="lines__empty">No products yet. Use <strong>Add product</strong> to add the first line.</div>
+                            }
+                            @for (var i = 0; i < lines.Count; i++)
+                            {
+                                var index = i;
+                                var line = lines[index];
+                                var product = ProductFor(line);
+                                <div @key="line" class="@LineRowClass(index, line, product)">
+                                    <span class="cell-product">
+                                        <IgbCombo T="int" class="combo combo--sm" SingleSelect="true" Outlined="true" Data="products" ValueKey="Id" DisplayKey="Label"
+                                                  Placeholder="Choose a product"
+                                                  Change="@(e => OnProductComboChange(line, e))" Invalid="@LineInvalid(index, line, product)"
+                                                  aria-label="@($"Product for line {index + 1}")" />
+                                        <span class="@StockNoteClass(index, line, product)">@StockNote(index, line, product)</span>
+                                    </span>
+                                    <span class="r num cell-pad">@(product is null ? "—" : Format.Money(product.UnitPrice))</span>
+                                    <IgbInput class="qty" DisplayType="InputType.Number" Outlined="true" Min="1" Step="1" @bind-Value="line.QuantityText"
+                                              Invalid="@(LineError(index, "Quantity") is not null)" aria-label="@($"Quantity for line {index + 1}")" />
+                                    <IgbSelect class="disc" Outlined="true" @bind-Value="line.Discount" aria-label="@($"Discount for line {index + 1}")">
+                                        @foreach (var d in Discounts)
+                                        {
+                                            <IgbSelectItem Value="@d.Value">@d.Label</IgbSelectItem>
+                                        }
+                                    </IgbSelect>
+                                    <span class="r num strong cell-pad">@Format.Money(LineTotal(line))</span>
+                                    <IgbIconButton IconName="trash" Collection="@Icons.Collection" Variant="IconButtonVariant.Flat" class="remove-btn"
+                                                   @onclick="() => RemoveLine(line)" aria-label="@($"Remove line {index + 1}")" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            @* ---------- Summary ---------- *@
+            <aside class="panel panel--pad summary">
+                <h2 class="panel__title">Summary</h2>
+                <div class="sum-rows">
+                    <div class="sum-row"><span class="muted">@lines.Count(l => l.ProductId is not null) lines · @Units units</span><span class="num">@Format.Money(Subtotal)</span></div>
+                    <div class="sum-row sum-row--input">
+                        <span class="muted">Freight</span>
+                        <IgbInput class="freight" DisplayType="InputType.Number" Outlined="true" Min="0" Step="0.01" @bind-Value="freightText"
+                                  Invalid="@(HasError("freight") || !FreightValid)" aria-label="Freight">
+                            <span slot="prefix">$</span>
+                        </IgbInput>
+                    </div>
+                    @if (HasError("freight")) { <span class="helper helper--error">@ErrorFor("freight")</span> }
+                    <div class="sum-total"><span class="strong">Total</span><span class="sum-total__value">@Format.Money(Subtotal + Freight)</span></div>
+                </div>
+                @if (Backorders.Count > 0)
+                {
+                    <div class="backorder">
+                        <IgbIcon IconName="alert-triangle" Collection="@Icons.Collection" />
+                        <span>@BackorderNote</span>
+                    </div>
+                }
+                <IgbButton Variant="ButtonVariant.Contained" class="create-btn" Disabled="@submitting" @onclick="SubmitAsync">
+                    @(submitting ? "Creating order…" : "Create order")
+                </IgbButton>
+                <a href="orders" class="cancel-link">Cancel</a>
+                <div class="endpoint mono">POST /api/orders</div>
+            </aside>
+        </div>
+    </div>
+}

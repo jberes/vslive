@@ -1,0 +1,40 @@
+@page "/more"
+
+<PageTitle>More · BusinessApp</PageTitle>
+
+@* Phone "More" tab: the screens that don't fit the bottom tabs (IgbList rows). *@
+<div class="page more">
+    <h1 class="page-title">More</h1>
+    <IgbList class="more-list">
+        @foreach (var link in Links)
+        {
+            <IgbListItem class="more-item" @onclick="@(() => Nav.NavigateTo(link.Href))" role="link" tabindex="0"
+                         @onkeydown="@(e => OnKey(e, link.Href))">
+                <IgbIcon slot="start" IconName="@link.Icon" Collection="@Icons.Collection" />
+                <span slot="title">@link.Label</span>
+                <IgbIcon slot="end" IconName="chevron-right" Collection="@Icons.Collection" />
+            </IgbListItem>
+        }
+    </IgbList>
+</div>
+
+@code {
+    private sealed record MoreLink(string Label, string Href, string Icon);
+
+    private static readonly IReadOnlyList<MoreLink> Links =
+    [
+        new("Customers", "customers", "users"),
+        new("Products", "products", "package"),
+        new("Reports", "reports", "bar-chart"),
+        new("Campaigns", "campaigns", "megaphone"),
+        new("New order", "orders/new", "plus-circle"),
+        new("States sheet", "states", "layers"),
+    ];
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private void OnKey(KeyboardEventArgs e, string href)
+    {
+        if (e.Key is "Enter" or " ") Nav.NavigateTo(href);
+    }
+}

@@ -1,0 +1,99 @@
+@api = http://localhost:5207/api
+@today = 2026-11-11
+# Dates/IDs match the seed data (seed 42). With date rebasing on, use the date from GET /api/meta/clock.
+
+### Operations clock (simulated "now")
+GET {{api}}/meta/clock
+
+### Everything a UI needs to bootstrap dropdowns
+GET {{api}}/meta/lookups
+
+########################################################################
+# Journey 1 - Assign a job
+########################################################################
+
+### Unassigned queue for today, most severe first
+GET {{api}}/jobs?date={{today}}&status=Unassigned&sort=priority,responseDueAt&pageSize=25
+
+### Best technicians for a job
+GET {{api}}/jobs/35760/recommendations?limit=5
+
+### Dry-run an assignment
+GET {{api}}/jobs/35760/validate-assignment?technicianId=148
+
+### Assign (409 with issues if blocked; add "force": true to override)
+POST {{api}}/jobs/35760/assign
+Content-Type: application/json
+
+{ "technicianId": 148, "dispatcherId": 3, "note": "Customer escalated" }
+
+### Move through the workflow
+POST {{api}}/jobs/35760/status
+Content-Type: application/json
+
+{ "status": "Dispatched", "dispatcherId": 3 }
+
+########################################################################
+# Journey 2 - Reschedule a technician
+########################################################################
+
+### Dispatch board (gantt data) for a region
+GET {{api}}/dispatch/board?regionId=1&date={{today}}
+
+### A technician's week
+GET {{api}}/technicians/68/schedule
+
+### Tech calls in sick: auto-distribute their remaining jobs
+POST {{api}}/dispatch/technicians/68/reassign-day
+Content-Type: application/json
+
+{ "date": "{{today}}", "mode": "AutoDistribute", "reasonCode": "TechnicianUnavailable", "comment": "Called in sick", "dispatcherId": 1 }
+
+### Move one job to a new time (and optionally a new tech)
+POST {{api}}/jobs/35605/reschedule
+Content-Type: application/json
+
+{ "newScheduledStart": "2026-11-12T13:00:00", "reasonCode": "CustomerRequest", "comment": "Customer asked for tomorrow", "dispatcherId": 5 }
+
+### Change shift hours and slide that day's jobs
+POST {{api}}/shifts/17474/move
+Content-Type: application/json
+
+{ "newStartTime": "10:00:00", "newEndTime": "18:30:00", "moveJobs": true, "dispatcherId": 2 }
+
+########################################################################
+# Journey 3 - Today's SLA risk
+########################################################################
+
+GET {{api}}/sla/summary
+
+###
+GET {{api}}/sla/at-risk?limit=50
+
+###
+GET {{api}}/sla/at-risk?regionId=1&state=Breached&priority=Critical
+
+###
+GET {{api}}/sla/trend?days=30
+
+###
+GET {{api}}/dashboard/kpis
+
+###
+GET {{api}}/dashboard/jobs-by-hour
+
+########################################################################
+# CRUD samples
+########################################################################
+
+### Create a job (SLA derived from customer tier + priority)
+POST {{api}}/jobs
+Content-Type: application/json
+
+{ "siteId": 1, "jobTypeId": 1, "priority": "High", "summary": "No cooling", "windowStart": "{{today}}T13:00:00", "windowEnd": "{{today}}T15:00:00", "dispatcherId": 1 }
+
+###
+GET {{api}}/technicians?regionId=1&skillId=2&sort=-rating&pageSize=20
+
+###
+GET {{api}}/customers?tier=Platinum&search=apex

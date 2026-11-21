@@ -1,0 +1,48 @@
+/* Shown only at phone width; the Gantt is hidden there (Projects.razor.css). */
+.phases { display: none; }
+
+@media (max-width: 720px) {
+    .phases { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+}
+
+.ph-card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px; background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default); border-radius: var(--radius-lg);
+}
+.ph-card__title { font-weight: 600; }
+.ph-card__meta { font-size: 12px; color: var(--color-text-secondary); }
+::deep igc-linear-progress.ph-bar { --ig-linear-progress-track-color: var(--gantt-track-blue); }
+::deep igc-linear-progress.ph-bar::part(track) { height: 6px; }
+
+.ph-heading { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); }
+
+::deep igc-accordion.ph-accordion { display: flex; flex-direction: column; gap: 12px; }
+::deep igc-expansion-panel.ph-panel {
+    --ig-expansion-panel-header-background: var(--color-bg-primary);
+    --ig-expansion-panel-body-background: var(--color-bg-primary);
+    --ig-expansion-panel-header-title-color: var(--color-text-primary);
+    --ig-expansion-panel-header-description-color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+::deep igc-expansion-panel.ph-panel::part(header) { padding: 12px 14px; align-items: flex-start; }
+::deep igc-expansion-panel.ph-panel::part(content) { padding: 0; border-top: 1px solid var(--color-border-light); }
+
+.ph-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
+.ph-head__name { font-weight: 600; }
+.ph-sub { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
+.ph-sub__progress { display: flex; align-items: center; gap: 10px; }
+::deep .ph-sub__progress igc-linear-progress { flex: 1; }
+.ph-sub__pct { font-weight: 600; width: 34px; text-align: right; color: var(--color-text-primary); }
+
+::deep igc-list.ph-tasks { --ig-list-background: var(--color-bg-primary); }
+::deep igc-list.ph-tasks igc-list-item::part(base) { min-height: 40px; padding: 0 14px; border-bottom: 1px solid var(--color-border-light); }
+::deep igc-list.ph-tasks igc-list-item::part(title) { font-size: 13px; }
+.ph-task__when { font-size: 13px; color: var(--color-text-tertiary); }
+
+.ph-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--color-border-strong); display: inline-block; }
+.ph-dot--done { background: var(--color-success); }
+.ph-dot--behind { background: var(--chart-3); }
+.ph-dot--active { background: var(--color-brand-blue); }

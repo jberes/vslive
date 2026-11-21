@@ -1,0 +1,133 @@
+@page "/tasks"
+@implements IDisposable
+@inject WorkspaceState Workspace
+
+<PageTitle>My Tasks - Team Collaboration</PageTitle>
+
+<aside class="section-sidebar tasks-sidebar" aria-label="Task navigation">
+    <h2>Tasks</h2>
+    <button type="button" class="my-tasks-link" @onclick="() => SelectList(null)">My tasks</button>
+
+    <div class="sidebar-group">
+        <h3>Lists</h3>
+        <nav class="sidebar-list" aria-label="Task lists">
+            @foreach (var list in lists)
+            {
+                <button type="button" class="sidebar-row" @onclick="() => SelectList(list)"
+                        aria-pressed="@((Workspace.SelectedTaskList == list).ToString().ToLowerInvariant())">
+                    <span>@list</span>
+                    <img src="assets/figma/sidebar-more.svg" alt="" />
+                </button>
+            }
+        </nav>
+        <IgbButton class="text-action sidebar-action" Variant="@ButtonVariant.Flat" Disabled="true"
+                   title="Adding filters is not available in this demo">
+            <img slot="prefix" src="assets/figma/add-pink.svg" alt="" />
+            Filter
+        </IgbButton>
+    </div>
+
+    <div class="sidebar-group filters-group">
+        <h3>Filters</h3>
+        <div class="sidebar-list">
+            @foreach (var filter in filters)
+            {
+                <button type="button" class="sidebar-row" disabled title="Date filters are not available in this demo">
+                    <span>@filter</span>
+                    <img src="assets/figma/sidebar-more.svg" alt="" />
+                </button>
+            }
+        </div>
+        <IgbButton class="text-action sidebar-action" Variant="@ButtonVariant.Flat" Disabled="true"
+                   title="Adding filters is not available in this demo">
+            <img slot="prefix" src="assets/figma/add-pink.svg" alt="" />
+            Filter
+        </IgbButton>
+    </div>
+</aside>
+
+<main class="page-content tasks-content">
+    <div class="tasks-page-header">
+        <h1>@(Workspace.SelectedTaskList ?? "VD Team")</h1>
+        <div class="tasks-toolbar" aria-label="Task view actions">
+            <IgbButton class="text-action" Variant="@ButtonVariant.Flat" Disabled="true" title="List settings are not available in this demo">
+                <img slot="prefix" src="assets/figma/toolbar-list.svg" alt="" /> List
+            </IgbButton>
+            <IgbButton class="text-action" Variant="@ButtonVariant.Flat" Disabled="true" title="Section settings are not available in this demo">
+                <img slot="prefix" src="assets/figma/toolbar-section.svg" alt="" /> Section
+            </IgbButton>
+            <IgbButton class="text-action" Variant="@ButtonVariant.Flat" Disabled="true" title="Field settings are not available in this demo">
+                <img slot="prefix" src="assets/figma/toolbar-fields.svg" alt="" /> Fields
+            </IgbButton>
+            <button type="button" class="toolbar-icon" aria-label="Filter tasks" disabled title="Filtering is not available in this demo">
+                <img src="assets/figma/toolbar-filter.svg" alt="" />
+            </button>
+            <button type="button" class="toolbar-icon" aria-label="More task options" disabled title="More options are not available in this demo">
+                <img src="assets/figma/toolbar-more.svg" alt="" />
+            </button>
+        </div>
+    </div>
+
+    <div class="tasks-columns">
+        <div class="task-sections">
+            @foreach (var group in VisibleGroups)
+            {
+                <TaskSection Group="group" />
+            }
+            @if (!VisibleGroups.Any())
+            {
+                <p class="empty-state">No tasks in this list yet.</p>
+            }
+        </div>
+
+        <aside class="calendar-column" aria-label="Calendar and releases">
+            <div class="calendar-frame">
+                <IgbCalendar TValue="DateTime" class="team-calendar" @bind-Value="selectedDate"
+                             ActiveDate="initialDate" ShowWeekNumbers="true" Locale="en-US"
+                             HeaderOrientation="@CalendarHeaderOrientation.Horizontal">
+                    <span slot="title">Title</span>
+                </IgbCalendar>
+                <div class="calendar-arrows" aria-hidden="true">
+                    <img src="assets/figma/calendar-previous.svg" alt="" />
+                    <img src="assets/figma/calendar-next.svg" alt="" />
+                </div>
+            </div>
+            <section class="release-calendar" aria-labelledby="release-heading">
+                <h2 id="release-heading">Release Calendar</h2>
+                <IgbList class="release-list">
+                    <IgbListItem>
+                        <span slot="start" class="release-avatar"><img src="assets/figma/release-android.svg" alt="" /></span>
+                        <span slot="title">App Builder</span>
+                        <span slot="subtitle">Product download process experience</span>
+                        <img slot="end" src="assets/figma/release-complete.svg" alt="Complete" />
+                    </IgbListItem>
+                    <IgbListItem>
+                        <span slot="start" class="release-avatar"><img src="assets/figma/release-android.svg" alt="" /></span>
+                        <span slot="title">Ultimate Products Review</span>
+                        <span slot="subtitle">08.12.2020</span>
+                        <img slot="end" src="assets/figma/release-alert.svg" alt="Needs attention" />
+                    </IgbListItem>
+                </IgbList>
+            </section>
+        </aside>
+    </div>
+</main>
+
+@code {
+    private readonly string[] lists = ["General", "App Builder", "Indigo.Design", "Marketing", "Customer Portal"];
+    private readonly string[] filters = ["Due this Week", "Overdue"];
+    private readonly DateTime initialDate = new(2023, 5, 15);
+    private DateTime selectedDate = new(2023, 5, 15);
+    private IEnumerable<TaskGroup> VisibleGroups =>
+        Workspace.SelectedTaskList is null
+            ? Workspace.TaskGroups
+            : Workspace.TaskGroups.Where(group => group.ListName == Workspace.SelectedTaskList);
+
+    protected override void OnInitialized() => Workspace.Changed += OnWorkspaceChanged;
+
+    private void SelectList(string? list) => Workspace.SelectedTaskList = list;
+
+    private void OnWorkspaceChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnWorkspaceChanged;
+}

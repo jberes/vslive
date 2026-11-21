@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    @* Ignite UI full product: base theme + grid theme (both required for IgbGrid) *@
+    <link rel="stylesheet" href="@Assets["_content/IgniteUI.Blazor/themes/light/bootstrap.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/IgniteUI.Blazor/themes/grid/light/bootstrap.css"]" />
+    @* ApexCharts design system: Ignite palette mapped to the brand + raw design tokens *@
+    <link rel="stylesheet" href="@Assets["css/ignite-palette.css"]" />
+    <link rel="stylesheet" href="@Assets["css/tokens.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["modern-windows-forms.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="RenderModeNoPrerender" />
+</head>
+
+<body class="ig-typography ig-scrollbar">
+    <Routes @rendermode="RenderModeNoPrerender" />
+    @* ApexGantt has no Blazor wrapper; loaded from CDN and driven through JS interop (js/gantt-interop.js) *@
+    <script src="https://cdn.jsdelivr.net/npm/apexgantt@3.22.0/apexgantt.min.js"></script>
+    @* ApexGantt Ignite UI add-on (no extra licence): the chart reads the page's Ignite UI --ig-* theme tokens *@
+    <script src="https://cdn.jsdelivr.net/npm/apexgantt@3.22.0/apexgantt.ignite-ui.min.js"></script>
+    <script src="js/gantt-interop.js"></script>
+    @* Full IgniteUI.Blazor(.Trial) in a Blazor Web App: bundle before the framework script, never fingerprinted *@
+    <script src="_content/IgniteUI.Blazor/app.bundle.js"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    // The client talks to the external API at http://localhost:5080, so server prerendering is disabled.
+    private static readonly IComponentRenderMode RenderModeNoPrerender = new InteractiveWebAssemblyRenderMode(prerender: false);
+}

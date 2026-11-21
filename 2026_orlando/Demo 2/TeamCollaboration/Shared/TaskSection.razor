@@ -1,0 +1,36 @@
+<section class="task-section" aria-labelledby="@HeadingId">
+    <div class="task-section-heading">
+        <h2 id="@HeadingId" class="@(Group.Name == "App Builder" ? "large-heading" : "")">@Group.Name</h2>
+        <p>@Group.Subtitle</p>
+    </div>
+    <IgbList class="task-list">
+        @foreach (var task in Group.Tasks)
+        {
+            <IgbListItem @key="task">
+                <IgbAvatar slot="start" class="task-avatar" Shape="@AvatarShape.Circle"
+                           Src="@task.Avatar" Alt="" />
+                <span slot="title">@task.Title</span>
+                <span slot="subtitle">@task.Description</span>
+                <button slot="end" type="button" class="task-edit-button"
+                        aria-label="Edit @task.Title" @onclick="() => Layout.OpenTaskEditor(Group, task)">
+                    <img src="assets/figma/task-edit.svg" alt="" />
+                </button>
+            </IgbListItem>
+        }
+    </IgbList>
+    <IgbButton class="text-action add-task" Variant="@ButtonVariant.Flat"
+               @onclick="() => Layout.OpenTaskEditor(Group)">
+        <img slot="prefix" src="assets/figma/add-pink.svg" alt="" />
+        Task
+    </IgbButton>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public TaskGroup Group { get; set; } = default!;
+
+    [CascadingParameter]
+    public MainLayout Layout { get; set; } = default!;
+
+    private string HeadingId => $"section-{Group.Name.Replace(" ", "-").ToLowerInvariant()}";
+}

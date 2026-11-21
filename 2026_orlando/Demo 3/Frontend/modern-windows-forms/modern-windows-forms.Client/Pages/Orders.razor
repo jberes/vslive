@@ -1,0 +1,241 @@
+@page "/orders"
+@using modern_windows_forms.Client.Models.Orders
+@using modern_windows_forms.Client.Pages.OrderParts
+@implements IAsyncDisposable
+
+<PageTitle>Orders · BusinessApp</PageTitle>
+
+<div class="page">
+    <div class="page-head">
+        <div class="page-head__text">
+            <h1 class="page-title">Orders</h1>
+            <p class="page-lede">Track, expand and ship customer orders. Shipping updates stock and the customer dashboard.</p>
+        </div>
+        <div class="page-actions">
+            <IgbButton Variant="ButtonVariant.Outlined" class="btn-ghost" @onclick="ExportCsvAsync" Disabled="@(rows.Count == 0)">
+                <IgbIcon slot="prefix" IconName="download" Collection="@Icons.Collection" />
+                Export CSV
+            </IgbButton>
+            <IgbButton Variant="ButtonVariant.Contained" Href="orders/new">
+                <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                New order
+            </IgbButton>
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" />
+            <span class="banner-text">
+                <strong>@loadError.Title</strong>
+                @if (!string.IsNullOrEmpty(loadError.Detail)) { <span> @loadError.Detail</span> }
+            </span>
+            <IgbButton Variant="ButtonVariant.Outlined" class="banner-retry" @onclick="ReloadAsync">Retry</IgbButton>
+        </div>
+    }
+
+    <section class="panel orders-panel">
+        @* Status tabs: IgbTabs used as a tab strip (no panels); counts come from filter=status:eq:X totals *@
+        <IgbTabs class="status-tabs" aria-label="Order status">
+            @foreach (var tab in Tabs)
+            {
+                <IgbTab Selected="@(tab.Key == activeTab)" SelectedChanged="@(selected => OnTabSelected(tab.Key, selected))">
+                    <span slot="label" class="tab-label">
+                        @tab.Label
+                        <span class="@TabCountClass(tab.Key)">@CountText(tab.Key)</span>
+                    </span>
+                </IgbTab>
+            }
+        </IgbTabs>
+
+        <div class="toolbar">
+            <IgbInput class="order-search" Placeholder="Order #, customer or city" Outlined="true" DisplayType="InputType.Search"
+                      @bind-Value="searchText" @bind-Value:after="OnSearchChanged" aria-label="Search orders">
+                <IgbIcon slot="prefix" IconName="search" Collection="@Icons.Collection" />
+            </IgbInput>
+
+            @foreach (var filter in filters)
+            {
+                <IgbChip class="filter-chip" Removable="true" Remove="@(_ => RemoveFilterAsync(filter))">@filter.Label</IgbChip>
+            }
+
+            <IgbDropdown class="add-filter" Change="OnShipViaPicked" Placement="PopoverPlacement.BottomStart">
+                <IgbButton slot="target" Variant="ButtonVariant.Outlined" class="add-filter-btn">
+                    <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                    Ship via
+                </IgbButton>
+                @foreach (var shipper in shippers)
+                {
+                    <IgbDropdownItem Value="@shipper.Id.ToString()">@shipper.CompanyName</IgbDropdownItem>
+                }
+            </IgbDropdown>
+
+            <IgbDropdown class="add-filter" Change="OnCountryPicked" Placement="PopoverPlacement.BottomStart">
+                <IgbButton slot="target" Variant="ButtonVariant.Outlined" class="add-filter-btn">
+                    <IgbIcon slot="prefix" IconName="plus" Collection="@Icons.Collection" />
+                    Country
+                </IgbButton>
+                @foreach (var country in countries)
+                {
+                    <IgbDropdownItem Value="@country.Country">@country.Country</IgbDropdownItem>
+                }
+            </IgbDropdown>
+
+            @if (filters.Count > 0)
+            {
+                <button type="button" class="link-btn" @onclick="ClearFiltersAsync">Clear filters</button>
+            }
+        </div>
+
+        @if (rows.Count == 0 && loading)
+        {
+            <div class="grid-skeleton" aria-busy="true" aria-label="Loading orders">
+                @for (var i = 0; i < 8; i++)
+                {
+                    <div class="sk-row"><span class="skeleton sk-a"></span><span class="skeleton sk-b"></span><span class="skeleton sk-c"></span><span class="skeleton sk-d"></span></div>
+                }
+            </div>
+        }
+        else if (rows.Count == 0 && loadError is null)
+        {
+            <div class="empty">
+                <IgbIcon IconName="inbox" Collection="@Icons.Collection" class="empty-icon" />
+                <strong>No orders match these filters</strong>
+                <span class="muted">Try another status or remove a filter.</span>
+                @if (filters.Count > 0 || !string.IsNullOrEmpty(searchText))
+                {
+                    <IgbButton Variant="ButtonVariant.Outlined" @onclick="ClearAllAsync">Clear search and filters</IgbButton>
+                }
+            </div>
+        }
+        else
+        {
+            @* Full IgbGrid: server-side paging/sorting, master-detail order lines, templated cells *@
+            <IgbGrid @ref="grid" class="orders-grid" Data="rows" PrimaryKey="Id" AutoGenerate="false"
+                     Width="100%" Height="640px" RowHeight="56" IsLoading="loading"
+                     SortingExpressions="sortExpressions" SortingDone="OnSortingDone">
+                <ChildContent>
+                <IgbGridToolbar>
+                    <IgbGridToolbarActions>
+                        <IgbGridToolbarExporter @ref="exporter" ExportCSV="true" ExportExcel="false" ExportPDF="false" Filename="orders" />
+                    </IgbGridToolbarActions>
+                </IgbGridToolbar>
+
+                <IgbColumn Field="@nameof(OrderRow.Id)" Header="Order" DataType="GridColumnDataType.Number" Width="96px" Sortable="true">
+                    <BodyTemplate>
+                        <span class="order-no">#@(((IgbCellTemplateContext)context).Cell.Value)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.CustomerName)" Header="Customer" DataType="GridColumnDataType.String" Sortable="true" MinWidth="200px">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        <span class="two-line">
+                            <span class="two-line__main">@o?.CustomerName</span>
+                            <span class="two-line__sub">@o?.ShipCity, @o?.ShipCountry</span>
+                        </span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.EmployeeFullName)" Header="Employee" DataType="GridColumnDataType.String" Sortable="true">
+                    <BodyTemplate>
+                        <span class="muted ellipsis">@(((IgbCellTemplateContext)context).Cell.Value)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.OrderDate)" Header="Ordered" DataType="GridColumnDataType.Date" Width="112px" Sortable="true">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        <span class="muted">@Format.Date(o?.OrderDate)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.RequiredDate)" Header="Required" DataType="GridColumnDataType.Date" Width="112px" Sortable="true">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        <span class="@(o?.Status == "Overdue" ? "req req--late" : "req")">@Format.Date(o?.RequiredDate)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.ShipViaName)" Header="Ship via" DataType="GridColumnDataType.String" Sortable="true">
+                    <BodyTemplate>
+                        <span class="muted ellipsis">@(((IgbCellTemplateContext)context).Cell.Value)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.Total)" Header="Total" DataType="GridColumnDataType.Currency" Width="108px" Sortable="true">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        <span class="money">@Format.Money(o?.Total ?? 0)</span>
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.Status)" Header="Status" DataType="GridColumnDataType.String" Width="104px" Sortable="true">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        <StatusChip Text="@(o?.Status)" />
+                    </BodyTemplate>
+                </IgbColumn>
+                <IgbColumn Field="@nameof(OrderRow.CanShip)" Header=" " DataType="GridColumnDataType.Boolean" Width="88px" Sortable="false" Filterable="false">
+                    <BodyTemplate>
+                        @{ var o = RowFor((IgbCellTemplateContext)context); }
+                        @if (o is { CanShip: true })
+                        {
+                            <IgbButton Variant="ButtonVariant.Outlined" class="ship-btn" @onclick="() => OpenShipDialogAsync(o)" aria-label="@($"Ship order {o.Id}")">
+                                <IgbIcon slot="prefix" IconName="truck" Collection="@Icons.Collection" />
+                                Ship
+                            </IgbButton>
+                        }
+                    </BodyTemplate>
+                </IgbColumn>
+                </ChildContent>
+
+                <DetailTemplate>
+                    @{ var order = RowForDetail((IgbGridMasterDetailContext)context); }
+                    @if (order is not null)
+                    {
+                        <OrderDetailPanel Order="order" Lines="LinesFor(order.Id)" LinesLoaded="@(l => CacheLines(order.Id, l))" />
+                    }
+                </DetailTemplate>
+            </IgbGrid>
+        }
+
+        <div class="grid-footer">
+            <span>@FooterText</span>
+            <span class="pager">
+                <IgbButton Variant="ButtonVariant.Outlined" class="pager-btn" Disabled="@(page <= 1 || loading)" @onclick="PreviousPageAsync">Previous</IgbButton>
+                <IgbButton Variant="ButtonVariant.Outlined" class="pager-btn" Disabled="@(page >= totalPages || loading)" @onclick="NextPageAsync">Next</IgbButton>
+            </span>
+        </div>
+    </section>
+</div>
+
+@* Ship order: IgbDialog with IgbSelect (shipper), IgbDatePicker (shipped date) and freight *@
+<IgbDialog @ref="shipDialog" class="ship-dialog" HideDefaultAction="true" KeepOpenOnEscape="false" CloseOnOutsideClick="false">
+    @if (shipTarget is not null)
+    {
+        <div slot="title" class="dlg-head">
+            <span class="dlg-icon"><IgbIcon IconName="truck" Collection="@Icons.Collection" /></span>
+            <span class="dlg-titles">
+                <span class="dlg-title">Ship order #@shipTarget.Id</span>
+                <span class="dlg-sub">@shipTarget.CustomerName · @shipTarget.ItemCount lines · @Format.Money(shipTarget.Total)</span>
+            </span>
+        </div>
+        <div class="dlg-body">
+            <IgbSelect class="dlg-field" Label="Shipper" Outlined="true" @bind-Value="shipViaValue">
+                @foreach (var shipper in shippers)
+                {
+                    <IgbSelectItem Value="@shipper.Id.ToString()">@shipper.CompanyName</IgbSelectItem>
+                }
+            </IgbSelect>
+            <IgbDatePicker class="dlg-field" Label="Shipped date" Outlined="true" @bind-Value="shipDate" Max="@DateTime.Today.AddDays(30)">
+                <span slot="helper-text">Required by @Format.Date(shipTarget.RequiredDate)</span>
+            </IgbDatePicker>
+            <IgbInput class="dlg-field" Label="Freight" Outlined="true" DisplayType="InputType.Number" Min="0" Step="0.01"
+                      @bind-Value="freightText" Invalid="@(freightError is not null)">
+                <span slot="prefix">$</span>
+                @if (freightError is not null) { <span slot="helper-text">@freightError</span> }
+            </IgbInput>
+            <div class="dlg-note">
+                <IgbIcon IconName="info" Collection="@Icons.Collection" />
+                <span>The order is shipped a few seconds after you confirm, so you can undo it from the notification.</span>
+            </div>
+        </div>
+    }
+    <IgbButton slot="footer" Variant="ButtonVariant.Outlined" @onclick="CloseShipDialogAsync">Cancel</IgbButton>
+    <IgbButton slot="footer" Variant="ButtonVariant.Contained" @onclick="ConfirmShipAsync">Ship order</IgbButton>
+</IgbDialog>

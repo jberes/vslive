@@ -1,0 +1,240 @@
+@page "/states"
+
+<PageTitle>States sheet · BusinessApp</PageTitle>
+
+@* App-wide offline notice: IgbBanner pushes the page down instead of overlaying it *@
+<div class="banner-host">
+<IgbBanner class="offline-banner" Open="@offline">
+    <IgbIcon slot="prefix" IconName="wifi-off" Collection="@Icons.Collection" />
+    <span><strong>You're offline.</strong> Showing data from @offlineSince. Changes will be sent when the connection is back.</span>
+    <IgbButton slot="actions" Variant="ButtonVariant.Outlined" @onclick="ReconnectAsync">Try again</IgbButton>
+</IgbBanner>
+</div>
+
+<div class="page">
+    <div>
+        <div class="eyebrow">Design reference</div>
+        <h1 class="page-title">States sheet</h1>
+        <p class="page-lede">Every screen uses these patterns. Messages come from the API's ProblemDetails responses.</p>
+    </div>
+
+    <div class="sheet">
+        @* ---------- Loading ---------- *@
+        <section class="panel panel--pad state">
+            <div class="state__head">
+                <h2 class="panel__title panel__title--sm">Loading</h2>
+                <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="ToggleLoadingAsync">@(loading ? "Finish loading" : "Reload")</IgbButton>
+            </div>
+            @if (loading)
+            {
+                <IgbLinearProgress class="loading-bar" Indeterminate="true" HideLabel="true" aria-label="Loading orders" />
+                <div class="skeletons" aria-hidden="true">
+                    <div class="sk-kpis">
+                        @foreach (var (label, value, sub) in KpiSkeletons)
+                        {
+                            <div class="sk-kpi">
+                                <span class="skeleton" style="--w: @label; --h: 12px"></span>
+                                <span class="skeleton" style="--w: @value; --h: 24px"></span>
+                                <span class="skeleton" style="--w: @sub; --h: 10px"></span>
+                            </div>
+                        }
+                    </div>
+                    <div class="sk-table">
+                        <div class="sk-table__head"></div>
+                        @foreach (var width in RowSkeletons)
+                        {
+                            <div class="sk-table__row">
+                                <span class="skeleton sk-dot"></span>
+                                <span class="skeleton" style="--w: @width; --h: 12px"></span>
+                                <span class="skeleton sk-num"></span>
+                                <span class="skeleton sk-chip"></span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <IgbLinearProgress class="loading-bar" Value="100" Max="100" HideLabel="true" aria-label="Orders loaded" />
+                <div class="loaded">
+                    @if (recentOrders.Count == 0)
+                    {
+                        <div class="loaded__row muted">No orders returned.</div>
+                    }
+                    @foreach (var o in recentOrders)
+                    {
+                        <div class="loaded__row">
+                            <span class="mono order-id">#@o.Id</span>
+                            <span>@o.CustomerName</span>
+                            <span class="num loaded__total">@Format.Money(o.Subtotal)</span>
+                        </div>
+                    }
+                </div>
+            }
+            <p class="caption">Skeletons mirror the real layout. The bar is IgbLinearProgress (indeterminate). Motion stops when the user prefers reduced motion.</p>
+        </section>
+
+        @* ---------- Empty states ---------- *@
+        <section class="panel panel--pad state">
+            <h2 class="panel__title panel__title--sm">Empty states</h2>
+            <div class="empties">
+                <div class="empty">
+                    <span class="tile tile--info"><IgbIcon IconName="orders" Collection="@Icons.Collection" /></span>
+                    <span class="empty__title">No orders yet</span>
+                    <span class="empty__text">Orders for this customer will show here.</span>
+                    <IgbButton class="small" Variant="ButtonVariant.Contained" Href="orders/new">Create order</IgbButton>
+                </div>
+                <div class="empty">
+                    <span class="tile tile--neutral"><IgbIcon IconName="search" Collection="@Icons.Collection" /></span>
+                    <span class="empty__title">@(string.IsNullOrEmpty(emptySearch) ? "Search cleared" : $"No results for “{emptySearch}”")</span>
+                    <span class="empty__text">@(string.IsNullOrEmpty(emptySearch) ? "All products are listed again." : "Check the spelling or search all products.")</span>
+                    <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="ToggleEmptySearch">@(string.IsNullOrEmpty(emptySearch) ? "Search “gouda”" : "Clear search")</IgbButton>
+                </div>
+            </div>
+            <div class="hint">
+                <IgbIcon IconName="info" Collection="@Icons.Collection" aria-hidden="true" />
+                <span>Charts with no data show the axes and one line: “No sales in this period.”</span>
+            </div>
+        </section>
+
+        @* ---------- Network error (Status 0: no response) ---------- *@
+        <section class="panel panel--pad state">
+            <div class="state__head">
+                <h2 class="panel__title panel__title--sm">Network error</h2>
+                <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="() => offline = !offline">@(offline ? "Go online" : "Go offline")</IgbButton>
+            </div>
+            <div class="error-card" role="alert">
+                <span class="tile tile--error"><IgbIcon IconName="wifi-off" Collection="@Icons.Collection" /></span>
+                <div class="error-card__body">
+                    <span class="error-card__title">Couldn't load orders</span>
+                    <span class="error-card__text">The server didn't respond. Check your connection, then try again.</span>
+                    <span class="mono error-card__trace">GET /api/orders · net::ERR_CONNECTION_REFUSED</span>
+                    <div class="actions">
+                        <IgbButton class="small" Variant="ButtonVariant.Contained" @onclick="RetryAsync">Retry</IgbButton>
+                        <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="CopyDetailsAsync">Copy details</IgbButton>
+                    </div>
+                </div>
+            </div>
+            <p class="caption">Inline errors replace only the panel that failed; the offline banner covers the whole app.</p>
+        </section>
+
+        @* ---------- 409 Conflict ---------- *@
+        <section class="panel panel--pad state">
+            <div class="state__head">
+                <h2 class="panel__title panel__title--sm">409 Conflict</h2>
+                <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="OpenConflictAsync">Open as dialog</IgbButton>
+            </div>
+            <div class="conflict-preview">
+                <div class="conflict-preview__body">
+                    <span class="tile tile--warning"><IgbIcon IconName="alert-triangle" Collection="@Icons.Collection" /></span>
+                    <div>
+                        <div class="conflict-title">Can't delete @conflictCompany</div>
+                        <p class="conflict-text">@ConflictMessage</p>
+                    </div>
+                </div>
+                <div class="conflict-preview__actions">
+                    <IgbButton class="small" Variant="ButtonVariant.Outlined" Href="@ConflictOrdersHref">View orders</IgbButton>
+                    <IgbButton class="small" Variant="ButtonVariant.Contained">OK</IgbButton>
+                </div>
+            </div>
+            <div class="other-409">
+                <span class="other-409__title">Other 409 messages, shown the same way</span>
+                <span>· That dependency would create a circular reference. (Gantt link)</span>
+                <span>· Order has already shipped. (Ship order)</span>
+                <span>· Lead has already been converted. (Convert lead)</span>
+            </div>
+        </section>
+
+        @* ---------- 404 Not found (live: GET /api/orders/99999) ---------- *@
+        <section class="panel panel--pad state">
+            <h2 class="panel__title panel__title--sm">404 Not found</h2>
+            <div class="notfound">
+                <span class="notfound__code">@(notFoundStatus?.ToString() ?? "404")</span>
+                <span class="notfound__title">Order #99999 doesn't exist</span>
+                <span class="notfound__text">It may have been deleted, or the link is wrong. Search for the order or go back to the list.</span>
+                <span class="mono notfound__trace">GET /api/orders/99999 → @(notFoundStatus is null ? "…" : $"{notFoundStatus} {notFoundTitle}")</span>
+                <div class="actions">
+                    <IgbButton class="small" Variant="ButtonVariant.Contained" Href="orders">Back to Orders</IgbButton>
+                    <IgbButton class="small" Variant="ButtonVariant.Flat" Href="">Go home</IgbButton>
+                </div>
+            </div>
+        </section>
+
+        @* ---------- Field validation (400) ---------- *@
+        <section class="panel panel--pad state">
+            <h2 class="panel__title panel__title--sm">Field validation (400)</h2>
+            <div class="fields">
+                <IgbInput class="field" Label="Email" Outlined="true" @bind-Value="email" Invalid="@EmailInvalid" DisplayType="InputType.Email">
+                    <span slot="helper-text" class="@(EmailInvalid ? "help help--error" : "help help--ok")">@(EmailInvalid ? "Enter an email like name@company.com." : "Looks good.")</span>
+                </IgbInput>
+                <IgbInput class="field" Label="Unit price" Outlined="true" @bind-Value="unitPrice" Invalid="@PriceInvalid">
+                    <span slot="helper-text" class="@(PriceInvalid ? "help help--error" : "help help--ok")">@(PriceInvalid ? "Must be greater than 0." : "Looks good.")</span>
+                </IgbInput>
+                <IgbInput class="@(CompanyInvalid ? "field" : "field field--ok")" Label="Company name" Outlined="true" @bind-Value="companyName" Invalid="@CompanyInvalid">
+                    <span slot="helper-text" class="@(CompanyInvalid ? "help help--error" : "help help--ok")">@(CompanyInvalid ? "Company name is required." : "Looks good.")</span>
+                </IgbInput>
+                <IgbInput class="field" Label="Postal code" Outlined="true" @bind-Value="postalCode">
+                    <span slot="helper-text" class="help">Hint text sits here before validation.</span>
+                </IgbInput>
+            </div>
+            <p class="caption">Field keys in the ProblemDetails <code class="mono">errors</code> dictionary map 1:1 to inputs. Errors with no matching field go in the form banner (see New order).</p>
+        </section>
+
+        @* ---------- Toasts ---------- *@
+        <section class="panel panel--pad state state--wide">
+            <div class="state__head">
+                <h2 class="panel__title panel__title--sm">Toasts</h2>
+                <div class="actions">
+                    @foreach (var t in ToastSamples)
+                    {
+                        <IgbButton class="small" Variant="ButtonVariant.Outlined" @onclick="() => ShowToastAsync(t)">Show @t.Kind</IgbButton>
+                    }
+                </div>
+            </div>
+            <div class="toast-previews">
+                @foreach (var t in ToastSamples)
+                {
+                    <div class="toast-preview">
+                        <IgbIcon class="@($"toast-icon toast-icon--{t.Kind}")" IconName="@t.Icon" Collection="@Icons.Collection" aria-hidden="true" />
+                        <span class="toast-preview__text">@t.Text</span>
+                        @if (t.Action is not null)
+                        {
+                            <span class="toast-preview__action">@t.Action</span>
+                        }
+                    </div>
+                }
+            </div>
+            <p class="caption">IgbToast, bottom center, 5 s (errors stay until dismissed). Undo is offered for ship, status and delete actions.</p>
+        </section>
+    </div>
+</div>
+
+<div class="overlay-host">
+@* 409 as a modal: IgbDialog *@
+<IgbDialog @ref="conflictDialog" class="conflict-dialog" HideDefaultAction="true" CloseOnOutsideClick="false" role="alertdialog">
+    <div class="conflict-dialog__body">
+        <span class="tile tile--warning"><IgbIcon IconName="alert-triangle" Collection="@Icons.Collection" /></span>
+        <div>
+            <h2 class="conflict-dialog__title">Can't delete @conflictCompany</h2>
+            <p class="conflict-text">@ConflictMessage</p>
+        </div>
+    </div>
+    <IgbButton slot="footer" Variant="ButtonVariant.Outlined" Href="@ConflictOrdersHref">View orders</IgbButton>
+    <IgbButton slot="footer" Variant="ButtonVariant.Contained" @onclick="CloseConflictAsync">OK</IgbButton>
+</IgbDialog>
+
+@* Live toast for the sample buttons: IgbSnackbar when there is an action, IgbToast otherwise *@
+<IgbSnackbar @ref="snackbar" class="@($"sample-toast sample-toast--{liveToast?.Kind}")" DisplayTime="5000" KeepOpen="@(liveToast?.Kind == "error")"
+             ActionText="@(liveToast?.Action ?? "")" Action="OnToastActionAsync" Position="AbsolutePosition.Bottom">
+    @if (liveToast is not null)
+    {
+        <span class="live-toast"><IgbIcon class="@($"toast-icon toast-icon--{liveToast.Kind}")" IconName="@liveToast.Icon" Collection="@Icons.Collection" aria-hidden="true" />@liveToast.Text</span>
+    }
+</IgbSnackbar>
+<IgbToast @ref="toast" class="sample-toast" DisplayTime="5000" Position="AbsolutePosition.Bottom">
+    @if (liveToast is not null)
+    {
+        <span class="live-toast"><IgbIcon class="@($"toast-icon toast-icon--{liveToast.Kind}")" IconName="@liveToast.Icon" Collection="@Icons.Collection" aria-hidden="true" />@liveToast.Text</span>
+    }
+</IgbToast>
+</div>

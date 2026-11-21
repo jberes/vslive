@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------
+# VSLive workspace - root .gitignore
+# ---------------------------------------------------------------
+
+# --- .NET build output ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# --- Node / front-end build output ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- SQLite databases ---
+# Raw .db files are too large / change too often to commit.
+# The Dispatch API database is committed as dispatch.db.gz instead
+# (see Demo 1/Backend/README.md for how to restore it).
+# The BusinessApp API creates and seeds businessapp.db on first run.
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+!*.db.gz
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+**/.claude/settings.local.json
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/

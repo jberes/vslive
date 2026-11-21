@@ -1,0 +1,160 @@
+@namespace modern_windows_forms.Client.Components.Customers
+@using modern_windows_forms.Client.Models.Customers
+@using Format = modern_windows_forms.Client.Shared.Format
+
+@if (error is not null)
+{
+    <div class="detail-pad">
+        <div class="banner banner--error" role="alert">
+            <IgbIcon IconName="alert-circle" Collection="@Icons.Collection" />
+            <span><strong>@error.Title</strong> @error.Detail</span>
+            <IgbButton Variant="ButtonVariant.Outlined" class="retry-btn" @onclick="ReloadAsync">Retry</IgbButton>
+        </div>
+    </div>
+}
+else if (CustomerId is null)
+{
+    <div class="detail-pad detail-none muted">Select a customer to see their details.</div>
+}
+else if (dashboard is null)
+{
+    @* Loading skeleton *@
+    <div class="detail-pad detail-skeleton" aria-busy="true" aria-label="Loading customer">
+        <div class="sk-row"><span class="skeleton sk-avatar"></span><span class="sk-col"><span class="skeleton sk-title"></span><span class="skeleton sk-line"></span></span></div>
+        <div class="sk-grid">@for (var i = 0; i < 4; i++) { <span class="skeleton sk-block"></span> }</div>
+        <span class="skeleton sk-tabs"></span>
+        <span class="skeleton sk-chart"></span>
+    </div>
+}
+else
+{
+    var c = dashboard.Customer;
+    <div class="detail-head">
+        <div class="detail-id">
+            <IgbAvatar class="@AvatarCss(c.CompanyName)" Shape="AvatarShape.Circle" Src="@Api.AssetUrl(c.AvatarUrl)"
+                       Initials="@Format.Initials(c.CompanyName)" Alt="" />
+            <div class="detail-id__text">
+                <h2 class="detail-title">@c.CompanyName</h2>
+                <div class="detail-meta">
+                    <span class="code-tag mono">@c.Code</span>
+                    <span>Customer since @c.CreatedAt.ToString("MMM yyyy", Culture)</span>
+                </div>
+            </div>
+            <IgbIconButton class="edit-btn" IconName="edit" Collection="@Icons.Collection" Variant="IconButtonVariant.Outlined"
+                           aria-label="Edit customer" @onclick="EditCustomer" />
+        </div>
+
+        <div class="facts">
+            <div class="fact">
+                <span class="fact__label">Contact</span>
+                <span class="fact__strong">@c.ContactName</span>
+                <span class="muted">@c.ContactTitle</span>
+            </div>
+            <div class="fact">
+                <span class="fact__label">Address</span>
+                <span>@c.Address</span>
+                <span class="muted">@($"{c.City} {c.PostalCode}, {c.Country}")</span>
+            </div>
+            <div class="fact">
+                <span class="fact__label">Email</span>
+                <a class="fact__link" href="@($"mailto:{c.Email}")">@c.Email</a>
+            </div>
+            <div class="fact">
+                <span class="fact__label">Phone</span>
+                <span>@c.Phone</span>
+            </div>
+        </div>
+    </div>
+
+    @* Overview / Orders / Products: IgbTabs with content in each IgbTab *@
+    <IgbTabs class="detail-tabs" Alignment="TabsAlignment.Start" @key="CustomerId">
+        <IgbTab Label="Overview" Selected="true">
+            <div class="tab-panel">
+                <div class="mini-kpis">
+                    <div class="mini-kpi"><span class="mini-kpi__label">Lifetime revenue</span><span class="mini-kpi__value">@Format.Money0(dashboard.Kpis.TotalSales)</span></div>
+                    <div class="mini-kpi"><span class="mini-kpi__label">Orders</span><span class="mini-kpi__value">@dashboard.Kpis.OrderCount</span></div>
+                    <div class="mini-kpi"><span class="mini-kpi__label">Open orders</span><span class="mini-kpi__value">@dashboard.Kpis.OpenOrders</span></div>
+                </div>
+
+                <div class="chart-block">
+                    <div class="chart-head">
+                        <h3 class="chart-title">Revenue by year</h3>
+                        <span class="subtle">Last order @Format.Date(dashboard.Kpis.LastOrderDate)</span>
+                    </div>
+                    @if (yearRevenue is null)
+                    {
+                        <span class="skeleton sk-chart"></span>
+                    }
+                    else
+                    {
+                        <ApexChart TItem="YearRevenue" Height="@("180")" Options="yearOptions" FormatYAxisLabel="Format.Compact" @key="CustomerId">
+                            <ApexPointSeries TItem="YearRevenue" Items="yearRevenue" Name="Revenue" SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Year)" YValue="@(e => e.Revenue)" />
+                        </ApexChart>
+                    }
+                </div>
+
+                <div class="banner banner--info info-note">
+                    <IgbIcon IconName="info" Collection="@Icons.Collection" />
+                    <span>@($"{DateTime.Today.Year} is year to date through {DateTime.Today.ToString("MMM d", Culture)}.")</span>
+                </div>
+            </div>
+        </IgbTab>
+
+        <IgbTab Label="Orders">
+            <div class="tab-panel tab-panel--list">
+                @if (dashboard.RecentOrders.Count == 0)
+                {
+                    <div class="tab-empty muted">No orders yet.</div>
+                }
+                @foreach (var o in dashboard.RecentOrders)
+                {
+                    <a class="order-row" href="orders">
+                        <span class="order-row__id mono">#@o.Id</span>
+                        <span class="order-row__when">
+                            <span>@Format.Date(o.OrderDate)</span>
+                            <span class="subtle">@OrderSub(o)</span>
+                        </span>
+                        <span class="order-row__end">
+                            <span class="order-row__total num">@Format.Money(o.Total)</span>
+                            <StatusChip Text="@o.Status" />
+                        </span>
+                    </a>
+                }
+                <a class="see-all" href="orders">See all @dashboard.Kpis.OrderCount orders</a>
+            </div>
+        </IgbTab>
+
+        <IgbTab Label="Products">
+            <div class="tab-panel">
+                <div class="chart-block">
+                    <div class="chart-head">
+                        <h3 class="chart-title">Sales by category</h3>
+                        <span class="subtle">Lifetime</span>
+                    </div>
+                    @if (dashboard.SalesByCategory.Count > 0)
+                    {
+                        <ApexChart TItem="NameValue" Height="@("220")" Options="donutOptions" @key="CustomerId">
+                            <ApexPointSeries TItem="NameValue" Items="dashboard.SalesByCategory" Name="Sales" SeriesType="SeriesType.Donut"
+                                             XValue="@(e => e.Name)" YValue="@(e => e.Value)" />
+                        </ApexChart>
+                    }
+                </div>
+
+                <div class="subtle">Top products by lifetime revenue</div>
+                <div class="top-products">
+                    @foreach (var p in TopProducts)
+                    {
+                        <div class="top-product">
+                            <div class="top-product__row">
+                                <span class="top-product__name">@p.Name</span>
+                                <span class="muted num">@($"{Format.Money0(p.Sales)} · {Format.Number(p.Units)} units")</span>
+                            </div>
+                            <IgbLinearProgress class="lp--teal bar-progress" Value="@((double)p.Sales)" Max="@TopProductMax" HideLabel="true" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </IgbTab>
+    </IgbTabs>
+}

@@ -1,0 +1,84 @@
+/*
+ * Rail Ops light theme — generated with the igniteui-theming MCP server:
+ *   create_theme({ platform: 'react', designSystem: 'fluent', variant: 'light',
+ *                  primaryColor: '#155dfc', secondaryColor: '#0f766e', surfaceColor: '#ffffff' })
+ * Loaded AFTER igniteui-webcomponents/themes/light/fluent.css. The Fluent theme already defines the
+ * `-contrast` formulas against each shade, so only the shade values are overridden here.
+ * ApexCharts reads these same --ig-* tokens through its Ignite UI add-on.
+ */
+:root {
+  --ig-primary-50: rgb(232, 236, 252);
+  --ig-primary-100: rgb(189, 203, 253);
+  --ig-primary-200: rgb(146, 173, 255);
+  --ig-primary-300: rgb(106, 146, 255);
+  --ig-primary-400: rgb(67, 119, 251);
+  /* Brand primary from the brief, pinned exactly. */
+  --ig-primary-500: #155dfc;
+  --ig-primary-600: rgb(14, 74, 205);
+  --ig-primary-700: rgb(9, 57, 162);
+  --ig-primary-800: rgb(8, 41, 112);
+  --ig-primary-900: rgb(5, 19, 53);
+  --ig-primary-A100: rgb(207, 217, 255);
+  --ig-primary-A200: rgb(122, 157, 255);
+  --ig-primary-A400: rgb(57, 113, 255);
+  --ig-primary-A700: rgb(10, 81, 235);
+
+  --ig-secondary-50: rgb(182, 249, 240);
+  --ig-secondary-100: rgb(95, 224, 211);
+  --ig-secondary-200: rgb(57, 195, 183);
+  --ig-secondary-300: rgb(33, 168, 157);
+  --ig-secondary-400: rgb(21, 143, 133);
+  --ig-secondary-500: rgb(16, 119, 111);
+  --ig-secondary-600: rgb(15, 97, 90);
+  --ig-secondary-700: rgb(16, 75, 70);
+  --ig-secondary-800: rgb(15, 52, 49);
+  --ig-secondary-900: rgb(8, 24, 22);
+
+  --ig-gray-50: rgb(251, 251, 251);
+  --ig-gray-100: rgb(247, 247, 247);
+  --ig-gray-200: rgb(236, 236, 236);
+  --ig-gray-300: rgb(217, 217, 217);
+  --ig-gray-400: rgb(193, 193, 193);
+  --ig-gray-500: rgb(164, 164, 164);
+  --ig-gray-600: rgb(132, 132, 132);
+  --ig-gray-700: rgb(99, 99, 99);
+  --ig-gray-800: rgb(66, 66, 66);
+  --ig-gray-900: rgb(33, 33, 33);
+
+  --ig-surface-500: rgb(255, 255, 255);
+
+  --ig-info-50: rgb(227, 236, 251);
+  --ig-info-100: rgb(176, 207, 251);
+  --ig-info-500: rgb(13, 107, 193);
+  --ig-info-700: rgb(10, 68, 123);
+
+  --ig-success-50: rgb(203, 247, 207);
+  --ig-success-100: rgb(127, 225, 142);
+  --ig-success-300: rgb(73, 169, 91);
+  --ig-success-500: rgb(48, 120, 62);
+  --ig-success-700: rgb(32, 76, 39);
+
+  --ig-warn-50: rgb(251, 233, 213);
+  --ig-warn-100: rgb(247, 195, 133);
+  --ig-warn-200: rgb(233, 162, 65);
+  --ig-warn-300: rgb(206, 135, 24);
+  --ig-warn-400: rgb(177, 114, 4);
+  --ig-warn-500: rgb(149, 94, 1);
+  --ig-warn-600: rgb(121, 77, 4);
+  --ig-warn-700: rgb(94, 60, 9);
+
+  --ig-error-50: rgb(254, 230, 230);
+  --ig-error-100: rgb(255, 187, 187);
+  --ig-error-200: rgb(255, 144, 147);
+  --ig-error-300: rgb(254, 97, 109);
+  --ig-error-400: rgb(236, 56, 81);
+  --ig-error-500: rgb(207, 27, 62);
+  --ig-error-600: rgb(172, 15, 48);
+  --ig-error-700: rgb(134, 17, 38);
+
+  --ig-font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+
+  /* Dense desktop layout. */
+  --ig-size: var(--ig-size-small);
+  --ig-spacing: 0.85;
+}

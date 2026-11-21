@@ -1,0 +1,133 @@
+/* ---------- Header actions ---------- */
+::deep igc-button.btn-ghost {
+    --ig-button-foreground: var(--color-text-primary);
+    --ig-button-border-color: var(--color-border-strong);
+    --ig-button-hover-background: var(--color-hover-bg);
+}
+
+/* ---------- Error banner ---------- */
+.banner { align-items: center; }
+.banner-text { flex: 1; }
+::deep .banner igc-icon { flex: none; }
+
+/* ---------- Panel ---------- */
+.orders-panel { overflow: hidden; display: flex; flex-direction: column; }
+
+/* Status tabs (IgbTabs as a strip): 48px tall, brand indicator */
+::deep igc-tabs.status-tabs {
+    --ig-tabs-item-active-color: var(--color-brand-blue-700);
+    --ig-tabs-item-text-color: var(--color-text-secondary);
+    --ig-tabs-indicator-color: var(--color-brand-blue);
+    border-bottom: 1px solid var(--color-border-default);
+    padding: 0 var(--space-4);
+}
+::deep igc-tabs.status-tabs::part(headers-wrapper),
+::deep igc-tabs.status-tabs::part(headers-content) { background: transparent; }
+::deep igc-tabs.status-tabs igc-tab::part(tab-header) { min-height: 48px; padding: 0 12px; }
+::deep igc-tabs.status-tabs igc-tab[selected] { font-weight: 600; }
+::deep igc-tabs.status-tabs igc-tab::part(tab-body) { display: none; }
+.tab-label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.tab-count {
+    font-size: 12px; font-weight: 600; line-height: 20px; padding: 0 7px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary); color: var(--color-text-secondary);
+}
+.tab-count--on { background: var(--color-info-bg); color: var(--color-info-text); }
+.tab-count--error { background: var(--color-error-bg); color: var(--color-error-text); }
+
+/* ---------- Toolbar: search, filter chips, add-filter dropdowns ---------- */
+.toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 12px var(--space-4);
+    border-bottom: 1px solid var(--color-border-default);
+}
+::deep igc-input.order-search { flex: 0 1 280px; --ig-size: var(--ig-size-small); }
+::deep igc-chip.filter-chip { --ig-size: var(--ig-size-small); }
+::deep igc-chip.filter-chip::part(base) {
+    border-radius: var(--radius-full); border: 0;
+    background: var(--color-info-bg); color: var(--color-info-text);
+    font-size: 13px; font-weight: 500; padding-inline-start: 12px;
+}
+::deep igc-button.add-filter-btn {
+    --ig-size: var(--ig-size-small);
+    --ig-button-foreground: var(--color-text-secondary);
+    --ig-button-border-color: var(--color-border-strong);
+    --ig-button-hover-background: var(--color-hover-bg);
+}
+::deep igc-button.add-filter-btn::part(base) { border-style: dashed; border-radius: var(--radius-full); font-weight: 400; font-size: 13px; }
+.link-btn {
+    border: 0; background: none; padding: 0 4px; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--color-text-link);
+}
+.link-btn:hover { color: var(--color-text-link-hover); }
+
+/* ---------- Grid ---------- */
+::deep igc-grid.orders-grid { --ig-grid-row-selected-background: var(--color-selected-bg); border: 0; }
+/* The toolbar only hosts the CSV exporter; it is triggered from the page header (IgbGridToolbar takes no class attribute) */
+::deep igc-grid.orders-grid igc-grid-toolbar { display: none; }
+.order-no { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-link); }
+.two-line { display: flex; flex-direction: column; min-width: 0; line-height: 18px; }
+.two-line__main { font-weight: 500; color: var(--sample-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.two-line__sub { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.req { color: var(--color-text-secondary); }
+.req--late { color: var(--color-error-text); font-weight: 500; }
+.money { font-variant-numeric: tabular-nums; font-weight: 500; }
+::deep igc-button.ship-btn {
+    --ig-size: var(--ig-size-small);
+    --ig-button-foreground: var(--color-text-primary);
+    --ig-button-border-color: var(--color-border-strong);
+    --ig-button-hover-background: var(--color-hover-bg);
+}
+::deep igc-button.ship-btn::part(base) { font-size: 13px; font-weight: 500; }
+
+/* Loading skeleton and empty state */
+.grid-skeleton { padding: 8px 16px; display: flex; flex-direction: column; }
+.sk-row { display: grid; grid-template-columns: 84px 2fr 1fr 120px; gap: 16px; align-items: center; height: 56px; border-bottom: 1px solid var(--sample-grid-border); }
+.sk-row .skeleton { height: 12px; }
+.sk-b { width: 70%; }
+.sk-c { width: 50%; }
+.empty {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 56px 16px; text-align: center;
+}
+::deep .empty-icon { width: 32px; height: 32px; color: var(--color-text-tertiary); }
+
+/* Footer pager */
+.grid-footer {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 12px var(--space-4);
+    font-size: 13px; color: var(--color-text-secondary);
+    border-top: 1px solid var(--color-border-default);
+}
+.pager { margin-left: auto; display: flex; gap: 4px; }
+::deep igc-button.pager-btn {
+    --ig-size: var(--ig-size-small);
+    --ig-button-foreground: var(--color-text-primary);
+    --ig-button-border-color: var(--color-border-default);
+    --ig-button-hover-background: var(--color-hover-bg);
+}
+::deep igc-button.pager-btn::part(base) { font-weight: 400; font-size: 13px; }
+
+/* ---------- Ship dialog ---------- */
+::deep igc-dialog.ship-dialog::part(base) { width: 480px; max-width: calc(100vw - 32px); }
+.dlg-head { display: flex; align-items: flex-start; gap: 12px; }
+.dlg-icon {
+    flex: none; width: 40px; height: 40px; border-radius: var(--radius-lg);
+    background: var(--color-brand-blue-50); color: var(--color-brand-blue-600);
+    display: flex; align-items: center; justify-content: center;
+}
+.dlg-titles { display: flex; flex-direction: column; }
+.dlg-title { font-family: var(--font-display); font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--color-text-primary); }
+.dlg-sub { margin-top: 4px; font-family: var(--font-sans); font-size: 14px; font-weight: 400; letter-spacing: 0; color: var(--color-text-secondary); }
+.dlg-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 4px; }
+.dlg-note {
+    grid-column: span 2; display: flex; gap: 8px; align-items: flex-start;
+    font-size: 13px; color: var(--color-text-secondary);
+}
+::deep .dlg-note igc-icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--color-brand-blue); }
+
+@media (max-width: 720px) {
+    .dlg-body { grid-template-columns: 1fr; }
+    .dlg-note { grid-column: auto; }
+}

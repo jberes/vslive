@@ -1,0 +1,1 @@
+Build an Angular dispatch console for 40 field-service dispatchers on 1920px screens. Journeys: assign a job, reschedule a technician, see today’s SLA risk. Use our component library through its MCP server; never hand-roll grids, charts or date pickers. Primary #155dfc, dense layout. Plan first. Screenshot every route and fix what you see before you say done.

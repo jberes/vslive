@@ -1,0 +1,58 @@
+.detail {
+    flex: 0 0 340px;
+    max-width: 360px;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-y: auto;
+    background: var(--color-bg-primary);
+    border-left: 1px solid var(--color-border-default);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.detail-head__text { min-width: 0; }
+.detail-wbs { font-size: 12px; color: var(--color-text-tertiary); }
+.detail-title { margin: 2px 0 0; font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -0.02em; }
+
+.detail-behind { font-size: 13px; line-height: 20px; color: var(--color-warning-strong); }
+::deep .detail-behind igc-icon { --size: 16px; width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--color-warning-text); }
+
+.detail-progress { display: flex; flex-direction: column; gap: 6px; }
+.detail-row { display: flex; justify-content: space-between; font-size: 13px; }
+::deep igc-linear-progress.detail-bar { --ig-linear-progress-track-color: var(--gantt-track-blue); }
+::deep igc-linear-progress.detail-bar.lp--green { --ig-linear-progress-track-color: var(--gantt-track-green); }
+::deep igc-linear-progress.detail-bar::part(track) { height: 8px; }
+
+.detail-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+::deep .detail-dates igc-date-picker { --ig-size: var(--ig-size-small); min-width: 0; }
+
+.detail-section { display: flex; flex-direction: column; gap: 8px; }
+.detail-label { font-size: 12px; color: var(--color-text-tertiary); }
+.detail-label--gap { margin-top: 4px; }
+.detail-deps { gap: 6px; font-size: 13px; }
+
+.person { display: flex; align-items: center; gap: 10px; }
+::deep .person igc-avatar { --ig-avatar-size: 32px; font-size: 12px; }
+.person__text { display: flex; flex-direction: column; min-width: 0; }
+.person__name { font-weight: 500; }
+.person__role { font-size: 12px; color: var(--color-text-secondary); }
+
+::deep .detail-section igc-textarea { --ig-size: var(--ig-size-small); }
+
+.detail-api { font-size: 12px; color: var(--color-text-tertiary); }
+
+.detail-empty { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--color-text-tertiary); }
+::deep .detail-empty igc-icon { --size: 28px; width: 28px; height: 28px; }
+
+.detail-skeleton { display: flex; flex-direction: column; gap: 12px; }
+.sk-line { height: 14px; width: 70%; }
+.sk-line--sm { width: 30%; height: 10px; }
+.sk-line--lg { width: 85%; height: 22px; }
+.sk-block { height: 72px; width: 100%; }
+
+@media (max-width: 1100px) {
+    .detail { flex-basis: 300px; }
+}

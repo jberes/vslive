@@ -1,0 +1,254 @@
+@page "/reports"
+@page "/reports/{Report}"
+@using modern_windows_forms.Client.Models.Reports
+
+<PageTitle>@current.Name · Reports · BusinessApp</PageTitle>
+
+<div class="page reports">
+    @* ---------- Report list: one hub replaces the 9 desktop report windows ---------- *@
+    <nav class="panel rep-nav" aria-label="Reports">
+        <div class="rep-nav__title">Reports</div>
+        <IgbList class="rep-list">
+            @foreach (var def in Definitions)
+            {
+                var on = def.Key == current.Key;
+                <IgbListItem class="@(on ? "rep-item rep-item--on" : "rep-item")" Selected="on" @onclick="@(() => Pick(def))"
+                             aria-current="@(on ? "page" : null)">
+                    <span slot="title" class="rep-item__name">@def.Name</span>
+                    <span slot="subtitle" class="rep-item__was">Was: @def.Was</span>
+                </IgbListItem>
+            }
+        </IgbList>
+        <div class="rep-nav__note">One hub replaces the 9 report windows of the desktop app. Each report keeps its own URL so it can be bookmarked and shared.</div>
+    </nav>
+
+    <div class="rep-main">
+        <div class="page-head">
+            <div class="page-head__text">
+                <div class="eyebrow">Sales report</div>
+                <h1 class="page-title rep-title">@current.Name</h1>
+                <p class="page-lede">@current.Description</p>
+            </div>
+            @if (IsYear)
+            {
+                <div class="page-actions">
+                    <IgbSelect class="year-select" @bind-Value="selectedYear" @bind-Value:after="OnYearChanged" Label="Year" aria-label="Year">
+                        @foreach (var y in years)
+                        {
+                            <IgbSelectItem Value="@y.ToString(System.Globalization.CultureInfo.InvariantCulture)">@y</IgbSelectItem>
+                        }
+                    </IgbSelect>
+                    <IgbButtonGroup class="seg" Selection="ButtonGroupSelection.SingleRequired" Select="SetView" aria-label="View">
+                        <IgbToggleButton Value="chart" Selected="@(view == "chart")">Chart</IgbToggleButton>
+                        <IgbToggleButton Value="table" Selected="@(view == "table")">Table</IgbToggleButton>
+                    </IgbButtonGroup>
+                    <IgbButton Variant="ButtonVariant.Outlined" Href="@ExportHref" Download="sales-by-year.csv" Disabled="@(data is null)">
+                        <IgbIcon slot="prefix" IconName="download" Collection="@Icons.Collection" />
+                        Export
+                    </IgbButton>
+                </div>
+            }
+        </div>
+
+        @if (loadError is not null)
+        {
+            <div class="banner banner--error" role="alert">
+                <IgbIcon IconName="@(loadError.Status == 0 ? "wifi-off" : "alert-circle")" Collection="@Icons.Collection" />
+                <span class="banner__text"><strong>@loadError.Title</strong> @loadError.Detail</span>
+                <IgbButton Variant="ButtonVariant.Outlined" @onclick="LoadAsync">
+                    <IgbIcon slot="prefix" IconName="refresh" Collection="@Icons.Collection" />
+                    Retry
+                </IgbButton>
+            </div>
+        }
+
+        @if (IsYear)
+        {
+            @* ---------- KPI row ---------- *@
+            <div class="kpi-grid">
+                @if (loading)
+                {
+                    @for (var i = 0; i < 4; i++)
+                    {
+                        <div class="kpi">
+                            <span class="skeleton sk-line sk-w40"></span>
+                            <span class="skeleton sk-value"></span>
+                            <span class="skeleton sk-line sk-w60"></span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    @foreach (var k in kpis)
+                    {
+                        <div class="kpi">
+                            <div class="kpi__top">
+                                <span class="kpi__label">@k.Label</span>
+                                <span class="@DeltaClass(k.Tone)">@k.Delta</span>
+                            </div>
+                            <span class="kpi__value">@k.Value</span>
+                            <span class="kpi__sub">@k.Sub</span>
+                        </div>
+                    }
+                }
+            </div>
+
+            @* ---------- Monthly revenue by year: ApexCharts line, or the month × year table ---------- *@
+            <section class="panel panel--pad main-chart">
+                <div class="chart-head">
+                    <div>
+                        <h2 class="panel__title">Monthly revenue by year</h2>
+                        <div class="panel__sub">
+                            @(view == "chart" ? "Click a year to show or hide it · ApexCharts line" : "Revenue per month · GET /api/reports/sales-by-year")
+                        </div>
+                    </div>
+                    @if (view == "chart")
+                    {
+                        <div class="year-pills" role="group" aria-label="Years shown">
+                            @foreach (var s in series)
+                            {
+                                var year = s.Year;
+                                <IgbChip class="@LegendClass(year)" @onclick="@(() => ToggleYear(year))" aria-pressed="@(hiddenYears.Contains(year) ? "false" : "true")">
+                                    <span slot="start" class="swatch" style="--swatch:@(hiddenYears.Contains(year) ? "#d1d5db" : s.Color)"></span>
+                                    @year
+                                </IgbChip>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (loading)
+                {
+                    <span class="skeleton sk-chart"></span>
+                }
+                else if (view == "chart")
+                {
+                    <ApexChart @key="ChartKey" @ref="lineChart" TItem="MonthValue" Options="LineOptions" Height="300" FormatYAxisLabel="MoneyAxis">
+                        @foreach (var s in VisibleSeries)
+                        {
+                            <ApexPointSeries TItem="MonthValue" Items="s.Points" Name="@s.Year.ToString()" SeriesType="SeriesType.Line"
+                                             Color="@s.Color" Stroke="@(new SeriesStroke { Width = s.Width, Color = s.Color })"
+                                             XValue="@(p => p.Month)" YValue="@(p => p.Value)" />
+                        }
+                    </ApexChart>
+                }
+                else
+                {
+                    <IgbGrid class="report-grid" TItem="YearMonthsVm" Data="monthRows" PrimaryKey="Year" AutoGenerate="false" Height="260px" Width="100%">
+                        <IgbColumn Field="YearLabel" Header="Year" DataType="GridColumnDataType.String" Width="104px" Pinned="true" />
+                        <IgbColumn Field="Jan" Header="Jan" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Feb" Header="Feb" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Mar" Header="Mar" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Apr" Header="Apr" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="May" Header="May" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Jun" Header="Jun" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Jul" Header="Jul" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Aug" Header="Aug" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Sep" Header="Sep" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Oct" Header="Oct" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Nov" Header="Nov" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Dec" Header="Dec" DataType="GridColumnDataType.String" />
+                        <IgbColumn Field="Total" Header="Total" DataType="GridColumnDataType.String" />
+                    </IgbGrid>
+                }
+            </section>
+
+            @* ---------- Revenue per year (bar) + Year over year (IgbGrid) ---------- *@
+            <div class="split">
+                <section class="panel panel--pad split__bars">
+                    <div>
+                        <h2 class="panel__title panel__title--sm">Revenue per year</h2>
+                        <div class="panel__sub">@AsOfYear is year to date</div>
+                    </div>
+                    @if (loading)
+                    {
+                        <span class="skeleton sk-bars"></span>
+                    }
+                    else
+                    {
+                        <ApexChart TItem="YearRowVm" Options="YearBarOptions" Height="240">
+                            <ApexPointSeries TItem="YearRowVm" Items="yearRows" Name="Revenue" SeriesType="SeriesType.Bar"
+                                             XValue="@(r => r.Year.ToString())" YValue="@(r => r.Sales)" />
+                        </ApexChart>
+                    }
+                </section>
+
+                <section class="panel split__table">
+                    <div class="panel__head">
+                        <div>
+                            <h2 class="panel__title panel__title--sm">Year over year</h2>
+                            <div class="panel__sub mono">GET /api/reports/sales-by-year</div>
+                        </div>
+                    </div>
+                    @if (loading)
+                    {
+                        <div class="sk-rows">
+                            @for (var i = 0; i < 4; i++)
+                            {
+                                <span class="skeleton sk-row"></span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <IgbGrid class="report-grid" TItem="YearRowVm" Data="yearRows" PrimaryKey="Year" AutoGenerate="false" Height="236px" Width="100%">
+                            <IgbColumn Field="YearLabel" Header="Year" DataType="GridColumnDataType.String" Width="104px">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <strong>@ctx.Cell.Value</strong>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="Revenue" Header="Revenue" DataType="GridColumnDataType.String">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <span class="num">@ctx.Cell.Value</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="Growth" Header="Growth" DataType="GridColumnDataType.String">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <span class="@GrowthClass(ctx)">@ctx.Cell.Value</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="Orders" Header="Orders" DataType="GridColumnDataType.String">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <span class="num">@ctx.Cell.Value</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="Customers" Header="Customers" DataType="GridColumnDataType.String">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <span class="num">@ctx.Cell.Value</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                            <IgbColumn Field="AverageOrder" Header="Avg order" DataType="GridColumnDataType.String">
+                                <BodyTemplate>
+                                    @{ var ctx = (IgbCellTemplateContext)context; }
+                                    <span class="num">@ctx.Cell.Value</span>
+                                </BodyTemplate>
+                            </IgbColumn>
+                        </IgbGrid>
+                    }
+                </section>
+            </div>
+        }
+        else
+        {
+            @* ---------- Other reports share the hub template; only Sales by year is fully designed ---------- *@
+            <section class="next-report">
+                <span class="next-report__icon"><IgbIcon IconName="bar-chart" Collection="@Icons.Collection" /></span>
+                <h2 class="next-report__title">Same layout as Sales by year</h2>
+                <p class="next-report__text">
+                    This report reuses the hub template: a KPI row, one primary ApexChart and an IgbGrid table.
+                    Only <strong>Sales by year</strong> is fully built so far.
+                </p>
+                <dl class="next-report__facts">
+                    <dt>Replaces</dt><dd>@current.Was</dd>
+                    <dt>Primary chart</dt><dd>@current.PrimaryChart</dd>
+                    <dt>Endpoint</dt><dd class="mono">@current.Endpoint</dd>
+                </dl>
+                <IgbButton Variant="ButtonVariant.Contained" @onclick="OpenSalesByYear">Open Sales by year</IgbButton>
+            </section>
+        }
+    </div>
+</div>

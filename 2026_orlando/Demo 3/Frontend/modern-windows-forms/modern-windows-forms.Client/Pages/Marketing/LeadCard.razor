@@ -1,0 +1,64 @@
+@using modern_windows_forms.Client.Models.Marketing
+
+@* One pipeline card: an IgbCard inside a native draggable wrapper (HTML5 drag events are handled on the wrapper). *@
+<article class="@WrapperClass" draggable="true" tabindex="0" aria-label="@($"{Lead.FullName}, {Lead.Company}")"
+         @ondragstart="() => DragStarted.InvokeAsync(Lead)" @ondragend="() => DragEnded.InvokeAsync()">
+    <IgbCard class="lead-card" Elevated="false">
+        <IgbCardContent class="lead-card__body">
+            <div class="who">
+                <IgbAvatar class="@($"who__avatar {Format.AvatarClass(Lead.FullName)}")" Shape="AvatarShape.Circle" Initials="@Format.Initials(Lead.FullName)" />
+                <div class="who__text">
+                    <div class="who__name">@Lead.FullName</div>
+                    <div class="who__meta">@Lead.Title · @Lead.Company</div>
+                </div>
+                <IgbIcon class="grip" IconName="grip" Collection="@Icons.Collection" aria-hidden="true" />
+            </div>
+            <div class="tags">
+                <IgbChip class="@ScoreClass">Score @Lead.Score</IgbChip>
+                <IgbChip class="status status--neutral tag">@SourceLabel(Lead.Source)</IgbChip>
+                <span class="country">@Lead.Country</span>
+            </div>
+            <div class="foot">
+                <span class="value num">@Format.Money0(Lead.EstimatedValue)</span>
+                <span class="owner">@OwnerFirstName · @Format.ShortDate(Lead.CreatedAt)</span>
+            </div>
+            @if (NextStatus is { } next)
+            {
+                <IgbButton class="advance" Variant="ButtonVariant.Outlined" @onclick="() => Advance.InvokeAsync((Lead, next))">
+                    @(next == LeadStatus.Won ? "Mark won and convert" : $"Move to {next}")
+                </IgbButton>
+            }
+        </IgbCardContent>
+    </IgbCard>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public LeadDto Lead { get; set; } = default!;
+    [Parameter] public bool Dragging { get; set; }
+    [Parameter] public EventCallback<LeadDto> DragStarted { get; set; }
+    [Parameter] public EventCallback DragEnded { get; set; }
+    [Parameter] public EventCallback<(LeadDto Lead, LeadStatus To)> Advance { get; set; }
+
+    private string WrapperClass => Dragging ? "lead lead--dragging" : "lead";
+
+    private string ScoreClass => "status tag " + (Lead.Score >= 70 ? "status--success" : Lead.Score >= 40 ? "status--warning" : "status--neutral");
+
+    private string OwnerFirstName => Lead.OwnerName?.Split(' ')[0] ?? "Unassigned";
+
+    private LeadStatus? NextStatus => Lead.Status switch
+    {
+        LeadStatus.New => LeadStatus.Contacted,
+        LeadStatus.Contacted => LeadStatus.Qualified,
+        LeadStatus.Qualified => LeadStatus.Proposal,
+        LeadStatus.Proposal => LeadStatus.Won,
+        _ => null
+    };
+
+    /// <summary>API enum names → display text (ColdCall → Cold call).</summary>
+    public static string SourceLabel(string source) => source switch
+    {
+        "ColdCall" => "Cold call",
+        "TradeShow" => "Trade show",
+        _ => source
+    };
+}

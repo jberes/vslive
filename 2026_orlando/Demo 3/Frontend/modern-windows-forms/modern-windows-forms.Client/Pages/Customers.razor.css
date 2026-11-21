@@ -1,0 +1,59 @@
+/* ---------- Header actions ---------- */
+.lede-skeleton { display: inline-block; width: 220px; height: 14px; vertical-align: middle; }
+::deep igc-button.btn-ghost { --ig-button-border-color: var(--color-border-strong); --ig-button-foreground: var(--color-text-primary); --ig-button-hover-background: var(--color-hover-bg); --ig-button-hover-foreground: var(--color-text-primary); }
+::deep igc-button igc-icon { --size: 16px; width: 16px; height: 16px; }
+
+/* ---------- Two-pane layout: list + detail ---------- */
+.cust-layout { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
+.cust-list { flex: 999 1 560px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+.cust-detail { flex: 1 1 400px; max-width: 460px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; position: sticky; top: calc(var(--app-header-height) + var(--space-4)); }
+
+/* ---------- Toolbar ---------- */
+.list-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px var(--space-4); border-bottom: 1px solid var(--color-border-default); }
+::deep igc-input.list-search { flex: 1 1 240px; --ig-size: var(--ig-size-medium); }
+::deep igc-input.list-search igc-icon { --size: 16px; width: 16px; height: 16px; color: var(--color-text-tertiary); }
+.country-field { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; color: var(--color-text-secondary); }
+::deep igc-select.country-select { width: 180px; --ig-size: var(--ig-size-medium); }
+::deep igc-chip.toggle-chip { --ig-size: var(--ig-size-medium); }
+::deep igc-chip.toggle-chip igc-icon { --size: 14px; width: 14px; height: 14px; }
+
+/* Active filters */
+.filter-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: 10px var(--space-4); background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-default); font-size: 13px; color: var(--color-text-secondary); }
+::deep igc-chip.pill--on { --ig-size: var(--ig-size-small); }
+::deep igc-button.link-btn { --ig-button-foreground: var(--color-text-link); --ig-button-hover-foreground: var(--color-text-link-hover); --ig-size: var(--ig-size-small); }
+::deep igc-button.link-btn::part(base) { font-weight: 500; font-size: 13px; padding: 0 6px; }
+
+.list-message { padding: var(--space-4); }
+.banner ::deep igc-icon { flex: none; --size: 18px; width: 18px; height: 18px; margin-top: 2px; }
+.banner > span { flex: 1; }
+::deep igc-button.retry-btn { --ig-size: var(--ig-size-small); flex: none; }
+
+/* ---------- Grid (IgbGrid with templated cells) ---------- */
+.grid-wrap { min-width: 0; }
+.grid-wrap.is-hidden { display: none; }
+::deep igc-grid.customers-grid { border: 0; --ig-size: var(--ig-size-medium); }
+.grid-wrap ::deep .igx-grid__tr--selected { box-shadow: inset 3px 0 0 var(--color-brand-blue); }
+.grid-wrap ::deep .igx-grid-th { text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; font-weight: 600; color: var(--color-text-secondary); }
+.grid-wrap ::deep .igx-grid-th--sorted { color: var(--color-brand-blue-700); }
+.grid-wrap ::deep .igx-grid__td { font-size: 14px; }
+.grid-wrap ::deep .igx-grid__td--number { font-variant-numeric: tabular-nums; font-weight: 500; }
+
+.grid-wrap ::deep .cell-company { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.grid-wrap ::deep .cell-company igc-avatar { flex: none; --ig-avatar-size: 32px; width: 32px; height: 32px; }
+.grid-wrap ::deep .cell-stack { display: flex; flex-direction: column; min-width: 0; line-height: 18px; }
+.grid-wrap ::deep .cell-strong { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid-wrap ::deep .cell-code { font-size: 12px; color: var(--color-text-tertiary); }
+.grid-wrap ::deep .cell-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid-wrap ::deep .cell-sub { font-size: 12px; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.list-footer { padding: 10px var(--space-4); border-top: 1px solid var(--color-border-default); font-size: 13px; color: var(--color-text-secondary); }
+
+/* ---------- Empty state ---------- */
+.empty-state { padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
+.empty-state__icon { width: 44px; height: 44px; border-radius: var(--radius-lg); background: var(--color-brand-blue-50); color: var(--color-brand-blue); display: flex; align-items: center; justify-content: center; }
+.empty-state__icon ::deep igc-icon { --size: 22px; width: 22px; height: 22px; }
+.empty-state__title { font-weight: 600; font-size: 15px; }
+
+@media (max-width: 1100px) {
+    .cust-detail { max-width: none; position: static; }
+}

@@ -1,0 +1,144 @@
+/* 7 · Project schedule — full-height work surface under the app bar */
+.sched {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--app-header-height));
+    min-height: 560px;
+    background: var(--color-bg-primary);
+}
+
+/* ---------- Project bar ---------- */
+.proj-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    min-height: 60px;
+    box-sizing: border-box;
+    padding: 10px 24px;
+    background: var(--color-bg-primary);
+    border-bottom: 1px solid var(--color-border-default);
+}
+::deep igc-select.proj-select { width: 340px; max-width: 100%; --ig-size: var(--ig-size-medium); }
+::deep igc-select.proj-select::part(input) { font-weight: 600; font-size: 15px; }
+.proj-meta { font-size: 13px; color: var(--color-text-secondary); }
+.proj-overall { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 220px; }
+.proj-overall__label { font-size: 13px; color: var(--color-text-secondary); }
+.proj-overall__pct { font-weight: 600; }
+::deep igc-linear-progress.proj-overall__bar { flex: 1; min-width: 120px; }
+::deep igc-linear-progress.lp--track { --ig-linear-progress-track-color: var(--gantt-track-blue); }
+::deep igc-linear-progress.lp--track::part(track) { height: 8px; }
+.sk-chip { width: 64px; height: 22px; border-radius: var(--radius-full); }
+.sk-meta { width: 260px; height: 14px; }
+
+/* ---------- Toolbar ---------- */
+.sched-toolbar {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 24px;
+    background: var(--color-bg-primary);
+    border-bottom: 1px solid var(--color-border-default);
+}
+::deep .sched-toolbar igc-button { --ig-size: var(--ig-size-small); }
+::deep .sched-toolbar igc-button::part(base) { height: 34px; font-size: 13px; padding: 0 12px; gap: 6px; border-radius: var(--radius-sm); }
+::deep .sched-toolbar igc-button.tb-btn::part(base) { font-weight: 500; color: var(--color-text-primary); border-color: var(--color-border-default); background: var(--color-bg-primary); }
+::deep .sched-toolbar igc-button.tb-btn:hover::part(base) { background: var(--color-hover-bg); }
+::deep .sched-toolbar igc-button igc-icon { --size: 14px; width: 14px; height: 14px; }
+::deep .sched-toolbar igc-icon-button.tb-icon {
+    --ig-size: var(--ig-size-small);
+    --ig-icon-button-foreground: var(--color-text-secondary);
+    --ig-icon-button-border-color: var(--color-border-default);
+    --ig-icon-button-hover-background: var(--color-hover-bg);
+}
+::deep .sched-toolbar igc-icon-button.tb-icon::part(base) { width: 34px; height: 34px; border-radius: var(--radius-sm); }
+.tb-sep { width: 1px; height: 22px; background: var(--color-border-default); margin: 0 4px; }
+.tb-label { font-size: 12px; color: var(--color-text-secondary); margin-right: 2px; }
+.tb-end { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+::deep igc-button-group.pct-group, ::deep igc-button-group.zoom-group {
+    --ig-size: var(--ig-size-small);
+    --ig-button-group-item-text-color: var(--color-text-secondary);
+    --ig-button-group-item-background: var(--color-bg-primary);
+    --ig-button-group-item-border-color: var(--color-border-default);
+    --ig-button-group-item-hover-background: var(--color-hover-bg);
+    --ig-button-group-item-selected-background: var(--color-selected-bg);
+    --ig-button-group-item-selected-text-color: var(--color-brand-blue-700);
+    --ig-button-group-item-selected-border-color: var(--color-border-default);
+    --ig-button-group-item-selected-hover-background: var(--color-selected-bg);
+}
+::deep igc-button-group.pct-group igc-toggle-button::part(toggle) { height: 32px; padding: 0 9px; font-size: 12px; }
+::deep igc-button-group.pct-group igc-toggle-button[selected]::part(toggle) { font-weight: 600; }
+::deep igc-button-group.zoom-group {
+    --ig-button-group-item-background: transparent;
+    --ig-button-group-item-selected-background: var(--color-bg-primary);
+    --ig-button-group-item-selected-text-color: var(--color-text-primary);
+    --ig-button-group-item-border-color: transparent;
+    --ig-button-group-item-selected-border-color: transparent;
+}
+::deep igc-button-group.zoom-group::part(group) { padding: 2px; gap: 2px; background: var(--color-bg-tertiary); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); }
+::deep igc-button-group.zoom-group igc-toggle-button::part(toggle) { height: 28px; padding: 0 10px; font-size: 12px; border-radius: var(--radius-sm); }
+::deep igc-button-group.zoom-group igc-toggle-button[selected]::part(toggle) { font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+
+.sched-alert { flex: none; padding: 12px 24px 0; }
+.sched-alert .banner { align-items: center; }
+.banner__text { flex: 1; }
+
+/* ---------- Body: Gantt + details ---------- */
+.sched-body { flex: 1 1 auto; min-height: 0; display: flex; }
+.gantt-pane { position: relative; flex: 1 1 auto; min-width: 0; background: var(--color-bg-primary); }
+.gantt-host { position: absolute; inset: 0; }
+.gantt-host[data-loading] { visibility: hidden; }
+
+/* ApexGantt renders into light DOM: theme it to the design system (sample-grid look). */
+::deep .gantt-host .gantt-actions-container { display: none; }   /* our Ignite toolbar replaces the built-in one */
+::deep .gantt-host .tasks-header,
+::deep .gantt-host .timeline-header { background: var(--sample-grid-header); }
+::deep .gantt-host .tasks-header-cell {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary);
+}
+::deep .gantt-host .timeline-header-cell { font-size: 11px; color: var(--color-text-tertiary); }
+::deep .gantt-host .tasks-data-row { cursor: pointer; }
+::deep .gantt-host .tasks-data-row:hover,
+::deep .gantt-host .timeline-data-row:hover { background: var(--sample-grid-row-hover); }
+::deep .gantt-host .tasks-data-row.gx-selected,
+::deep .gantt-host .tasks-data-row[aria-selected="true"] { background: var(--color-selected-bg); box-shadow: inset 3px 0 0 var(--color-brand-blue); }
+::deep .gantt-host .timeline-data-row.gx-selected { background: rgba(0, 143, 251, 0.06); }
+::deep .gantt-host .gx-wbs { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-tertiary); }
+::deep .gantt-host .gx-pct { font-weight: 500; font-variant-numeric: tabular-nums; }
+::deep .gantt-host .bar-label { font-size: 12px; color: var(--color-text-secondary); }
+::deep .gantt-host .annotation-label { font-weight: 600; }
+::deep .apexgantt-tooltip .gx-tip { font-family: var(--font-sans); font-size: 12px; line-height: 18px; color: var(--sample-tooltip-ink); }
+::deep .apexgantt-tooltip .gx-tip-title { font-weight: 600; margin-bottom: 2px; }
+::deep .apexgantt-tooltip .gx-tip-row,
+::deep .apexgantt-tooltip .gx-tip-who { color: var(--color-text-secondary); }
+
+/* Loading skeleton over the chart area */
+.gantt-skeleton { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--color-bg-primary); }
+::deep igc-linear-progress.sk-progress { --ig-linear-progress-track-color: transparent; }
+.sk-row { display: grid; grid-template-columns: 44px 220px 1fr; gap: 12px; align-items: center; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--color-border-light); }
+.sk-wbs { height: 10px; width: 24px; }
+.sk-name { height: 12px; width: 70%; }
+.sk-bar { height: 18px; border-radius: 4px; }
+.sk-bar--0 { width: 30%; margin-left: 4%; }
+.sk-bar--1 { width: 18%; margin-left: 22%; }
+.sk-bar--2 { width: 26%; margin-left: 38%; }
+.sk-bar--3 { width: 14%; margin-left: 60%; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+    .proj-bar, .sched-toolbar { padding-left: 16px; padding-right: 16px; }
+    .proj-overall { margin-left: 0; flex: 1 1 100%; }
+    .tb-end { margin-left: 0; }
+}
+
+/* Phone: the phase list replaces the Gantt (see Projects/PhaseList.razor) */
+@media (max-width: 720px) {
+    .sched { height: auto; min-height: 0; background: var(--color-bg-secondary); }
+    .sched-toolbar, .sched-body, .proj-meta, .proj-overall { display: none; }
+    .proj-bar { padding: 12px 16px; }
+    ::deep igc-select.proj-select { width: 100%; }
+}
